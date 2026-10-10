@@ -127,6 +127,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        #if DEBUG
+        // Hooks for scripting demo screenshots. Any process on the Mac can post
+        // a distributed notification, so they must never ship in a release build.
         DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name("com.sunmemo.pinLine"),
             object: nil,
@@ -243,6 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.line.discard(target.id)
             }
         }
+        #endif
 
         setUpStatusItem()
         watchMenuBarClicks()
@@ -796,7 +800,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
 
         let clearItem = ClosureMenuItem(L("Take everything down")) { [weak self] in
-            self?.line.clear()
+            self?.confirmClear()
         }
         clearItem.isEnabled = line.liveCount > 0
         menu.addItem(clearItem)
@@ -859,6 +863,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(ClosureMenuItem(L("Quit SunMemo"), key: "q") {
             NSApp.terminate(nil)
         })
+    }
+
+    /// Taking everything down deletes every memo from the line, so it asks
+    /// first. Screenshots only leave the line; their files stay where they are.
+    private func confirmClear() {
+        let memos = line.items.filter { $0.isMemo && !$0.falling }.count
+        guard memos > 0 else {
+            line.clear()
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = L("Take everything down?")
+        alert.informativeText = String(format: L("%d memos will be removed from the line. Their text stays in the archive of ~/Documents/SunMemo.md, but they cannot be hung back from SunMemo."), memos)
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("Take everything down"))
+        alert.addButton(withTitle: L("Cancel"))
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            line.clear()
+        }
     }
 
     private static func toggleLaunchAtLogin() {

@@ -28,3 +28,24 @@
 
 /* PeggedView */
 "Copied" = "Copiado";
+
+/* Memo editor, saving and shortcuts */
+"Take everything down?" = "¿Descolgar todo?";
+"%d memos will be removed from the line. Their text stays in the archive of ~/Documents/SunMemo.md, but they cannot be hung back from SunMemo." = "Se quitarán %d notas del tendedero. Su texto queda en el archivo de ~/Documents/SunMemo.md, pero no se pueden volver a colgar desde SunMemo.";
+"Cancel" = "Cancelar";
+"This memo is not on the line yet" = "Esta nota aún no está colgada";
+"Keep it as a draft and it comes back the next time you write a new memo." = "Guárdala como borrador y volverá la próxima vez que escribas una nota nueva.";
+"This memo has unsaved changes" = "Esta nota tiene cambios sin guardar";
+"Keep them as a draft and they come back the next time you edit this memo." = "Guárdalos como borrador y volverán la próxima vez que edites esta nota.";
+"Keep Draft" = "Guardar borrador";
+"Keep Editing" = "Seguir editando";
+"Could not save the memo" = "No se pudo guardar la nota";
+"Your text is still on the line. Check that there is free disk space, then edit the memo to save it again." = "Tu texto sigue en el tendedero. Comprueba que haya espacio libre en el disco y edita la nota para volver a guardarla.";
+"A memo could not be read" = "No se pudo leer una nota";
+"The damaged file was moved to %@ so nothing is lost." = "El archivo dañado se movió a %@ para no perder nada.";
+"The memo archive could not be read" = "No se pudo leer el archivo de notas";
+"Could not save the memo archive" = "No se pudo guardar el archivo de notas";
+"Include Control or Option, so the shortcut does not take keys away from other apps." = "Incluye Control u Opción, para que el atajo no les quite teclas a otras apps.";
+"SunMemo already uses this shortcut for something else." = "SunMemo ya usa este atajo para otra cosa.";
+"macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS rechazó este atajo, así que se mantiene el anterior. Probablemente otra app ya lo usa.";
+"A shortcut is already used by another app and does not work. Record a different one." = "Otra app ya usa un atajo y no funciona. Graba uno distinto.";

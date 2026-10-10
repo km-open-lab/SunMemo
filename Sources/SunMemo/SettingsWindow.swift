@@ -36,12 +36,10 @@ struct SettingsView: View {
     @ObservedObject var clipboardWatcher = ClipboardWatcher.shared
     @ObservedObject var updateChecker = UpdateChecker.shared
     @State private var recordingTarget: RecordingTarget?
+    /// Why the last recorded shortcut was not taken.
+    @State private var shortcutMessage: String?
 
-    enum RecordingTarget {
-        case toggle
-        case memo
-        case paste
-    }
+    typealias RecordingTarget = HotKeyManager.Target
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -132,6 +130,14 @@ struct SettingsView: View {
                     ) {
                         recordingTarget = (recordingTarget == .paste) ? nil : .paste
                     }
+                }
+
+                if let message = shortcutMessage ?? (hotKeyManager.unavailable.isEmpty ? nil
+                    : L("A shortcut is already used by another app and does not work. Record a different one.")) {
+                    Label(message, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(12)
@@ -230,16 +236,20 @@ struct SettingsView: View {
         }
         .padding(20)
         .frame(width: 480, height: 420)
+        .onChange(of: recordingTarget) { target in
+            if target != nil { shortcutMessage = nil }
+        }
         .background(KeyCaptureView(recordingTarget: $recordingTarget) { keyCode, modifiers in
-            if recordingTarget == .toggle {
-                hotKeyManager.toggleKey = keyCode
-                hotKeyManager.toggleMods = modifiers
-            } else if recordingTarget == .memo {
-                hotKeyManager.memoKey = keyCode
-                hotKeyManager.memoMods = modifiers
-            } else if recordingTarget == .paste {
-                hotKeyManager.pasteKey = keyCode
-                hotKeyManager.pasteMods = modifiers
+            guard let target = recordingTarget else { return }
+            // Refused combinations keep recording, so you can try another.
+            if let problem = hotKeyManager.problem(withKey: keyCode, mods: modifiers, for: target) {
+                shortcutMessage = problem
+                NSSound.beep()
+                return
+            }
+            if !hotKeyManager.setShortcut(target, key: keyCode, mods: modifiers) {
+                shortcutMessage = L("macOS refused this shortcut, so the previous one is kept. Another app probably uses it already.")
+                NSSound.beep()
             }
             recordingTarget = nil
         })
