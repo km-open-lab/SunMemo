@@ -4,7 +4,11 @@
 > An elegant macOS clothesline for your thoughts, to-do lists, and screenshots.
 
 <p align="center">
-  <img src="build/SunMemo.app/Contents/Resources/SunMemo.icns" width="128" height="128" alt="SunMemo App Icon">
+  <strong>简体中文</strong> &nbsp;·&nbsp; <a href="README_en.md">English</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/icon.png" width="128" height="128" alt="SunMemo App Icon">
   <br><br>
   <strong>纯本地 · 离线隐私 · 极速流畅 · 兼容 macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>

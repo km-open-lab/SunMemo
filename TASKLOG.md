@@ -1,6 +1,16 @@
 # 项目进度记录
 
-## 2026-10-10 17:35 CST — 演示数据注入、高清实机截图与 GitHub 仓库展示上架
+## 2026-10-10 17:45 CST — 修复 README 图标裂链与建立完整英文文档（README_en.md）
+
+- 用户原话或需求摘要：「缺少图标 以及英文版本的」（提供 GitHub 页面图标图片破损链接截图）。
+- 完成内容与技术实现：
+  1. 图标裂链根因与修复：原 `README.md` 引用了 `build/.../SunMemo.icns`，该目录受 `.gitignore` 保护且网页端无法直接渲染 ICNS；运行 `scripts/make-icon.swift` 重新输出包含便签与拍立得双卡合一的 1024×1024 视网膜 PNG 图标至 `docs/images/icon.png`，并将 Markdown 路径修正指向该文件。
+  2. 英文版说明文档建立（`README_en.md`）：撰写地道规范的国际化英文说明文档，完整映射 SunMemo 核心特色（晾衣绳、手拨扑克牌扇面推开、多比例药丸系统、1.3pt 悬链拉绳、Markdown 待办体系、本地归档、版本自动检测）、快捷键清单、编译安装指引与架构概览。
+  3. 双语快速导航：在 `README.md` 与 `README_en.md` 顶部互通设置 `简体中文 · English` 一键语言切换链接。
+- 验证结果：`docs/images/icon.png` 渲染与尺寸（1024×1024）校验通过；中英双语文档结构与图片相对路径对齐无误。
+- 生产 / 发布边界：更新 `README.md`、`docs/images/icon.png`，新建 `README_en.md`，更新 `TASKLOG.md`。
+- 涉及文件：`docs/images/icon.png`、`README.md`、`README_en.md`、`TASKLOG.md`。
+
 
 - 用户原话或需求摘要：「GitHub仓库里需要增加截图演示 你注入一些数据并截图我看看 确认后放进去」「第二张不要 其他的放进去」。
 - 完成内容与技术实现：
