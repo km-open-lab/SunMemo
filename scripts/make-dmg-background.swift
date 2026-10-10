@@ -52,7 +52,7 @@ let text = NSAttributedString(string: "拖移 SunMemo 到 Applications 安装使
     .foregroundColor: color(80, 84, 100),
     .paragraphStyle: style,
 ])
-text.draw(in: NSRect(x: 0, y: 54, width: W, height: 20))
+text.draw(in: NSRect(x: 0, y: 70, width: W, height: 22))
 
 NSGraphicsContext.restoreGraphicsState()
 try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))

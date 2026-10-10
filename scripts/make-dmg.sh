@@ -21,7 +21,16 @@ tiffutil -cathidpicheck "$WORK/bg1x.png" "$WORK/bg2x.png" -out "$STAGE/.backgrou
 
 RW="$WORK/rw.dmg"
 hdiutil create -quiet -srcfolder "$STAGE" -volname "$NAME" -fs HFS+ -format UDRW -size 60m "$RW"
+
+# Detach any existing volumes with this name to avoid mount collisions
+for v in /Volumes/"$NAME"*; do
+  if [ -d "$v" ]; then
+    hdiutil detach "$v" 2>/dev/null || true
+  fi
+done
+
 MOUNT="$(hdiutil attach -readwrite -noverify -noautoopen "$RW" | awk -F'\t' '/\/Volumes\//{print $NF}')"
+DISK_NAME="$(basename "$MOUNT")"
 
 # Tiling window managers resize the window, and Finder would save that size
 # into the image. Pause AeroSpace while laying it out, if it is running.
@@ -34,7 +43,7 @@ fi
 # image still works, just with Finder's default layout.
 osascript <<OSA || echo "Finder layout skipped"
 tell application "Finder"
-  tell disk "$NAME"
+  tell disk "$DISK_NAME"
     open
     set current view of container window to icon view
     set toolbar visible of container window to false

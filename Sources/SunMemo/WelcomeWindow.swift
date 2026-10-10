@@ -75,24 +75,24 @@ struct WelcomeView: View {
             .padding(.top, 18)
 
             // Features List
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 FeatureRow(
                     icon: "sparkles",
                     iconColor: Color.orange,
                     title: "桌面顶部晾衣绳",
-                    description: "按 ⌃ ⌥ ␣ 随时呼出收起，卡片自然层叠收纳"
+                    description: "快捷键随时呼出收起，卡片多时自然扇面叠放"
                 )
                 FeatureRow(
                     icon: "checklist",
                     iconColor: Color.blue,
                     title: "便签速记与待办清单",
-                    description: "按 ⌃ ⌥ N 弹窗写便签，直接在绳上交互勾选"
+                    description: "弹窗速记与多色卡片，直接在绳上卡片点击打勾"
                 )
                 FeatureRow(
                     icon: "camera.fill",
                     iconColor: Color.indigo,
                     title: "截图与剪贴板接管",
-                    description: "按 ⌃ ⌥ V 随时挂上剪贴板，桌面保持清爽"
+                    description: "一键收纳截图与复制内容，桌面始终干净清爽"
                 )
                 FeatureRow(
                     icon: "doc.text.fill",
