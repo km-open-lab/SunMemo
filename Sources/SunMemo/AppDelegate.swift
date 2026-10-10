@@ -674,21 +674,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(pasteItem)
 
-        menu.addItem(ClosureMenuItem("偏好设置与快捷键...") {
-            SettingsWindowController.shared.show()
-        })
-
-        menu.addItem(ClosureMenuItem("💡 欢迎与使用引导...") { [weak self] in
-            WelcomeWindowController.shared.show { [weak self] enableInbox in
-                if enableInbox {
-                    self?.setInbox(true)
-                }
-            }
-        })
-
-        menu.addItem(ClosureMenuItem("📄 打开本地 Markdown 备忘文件 (SunMemo.md)") {
-            MemoSyncManager.shared.openInEditor()
-        })
+        menu.addItem(.separator())
 
         let clearItem = ClosureMenuItem(L("Take everything down")) { [weak self] in
             self?.line.clear()
@@ -696,32 +682,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         clearItem.isEnabled = line.liveCount > 0
         menu.addItem(clearItem)
 
+        menu.addItem(ClosureMenuItem("偏好设置与快捷键...") {
+            SettingsWindowController.shared.show()
+        })
+
+        // 更多选项 (Submenu: 清爽折叠次要项)
+        let moreMenu = NSMenu(title: "更多选项")
+
+        moreMenu.addItem(ClosureMenuItem("📄 打开本地备份 (SunMemo.md)") {
+            MemoSyncManager.shared.openInEditor()
+        })
+
+        moreMenu.addItem(ClosureMenuItem(L("Open screenshots folder")) { [weak self] in
+            guard let self else { return }
+            NSWorkspace.shared.open(self.watcher.folder)
+        })
+
+        moreMenu.addItem(ClosureMenuItem("💡 欢迎与使用引导...") { [weak self] in
+            WelcomeWindowController.shared.show { [weak self] enableInbox in
+                if enableInbox {
+                    self?.setInbox(true)
+                }
+            }
+        })
+
+        moreMenu.addItem(.separator())
+
         let inbox = ClosureMenuItem(L("Handle screenshots")) { [weak self] in
             self?.setInbox(!Inbox.isEnabled)
         }
         inbox.state = Inbox.isEnabled ? .on : .off
         inbox.toolTip = L("Screenshots hang instantly and skip the Desktop")
-        menu.addItem(inbox)
-
-        menu.addItem(ClosureMenuItem(L("Open screenshots folder")) { [weak self] in
-            guard let self else { return }
-            NSWorkspace.shared.open(self.watcher.folder)
-        })
-
-        menu.addItem(.separator())
+        moreMenu.addItem(inbox)
 
         let sound = ClosureMenuItem(L("Sounds")) { [weak self] in
             guard let self else { return }
             self.line.soundOn.toggle()
         }
         sound.state = line.soundOn ? .on : .off
-        menu.addItem(sound)
+        moreMenu.addItem(sound)
 
         let login = ClosureMenuItem(L("Open at login")) {
             AppDelegate.toggleLaunchAtLogin()
         }
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
-        menu.addItem(login)
+        moreMenu.addItem(login)
+
+        let moreItem = NSMenuItem(title: "更多选项", action: nil, keyEquivalent: "")
+        moreItem.submenu = moreMenu
+        menu.addItem(moreItem)
 
         menu.addItem(.separator())
         menu.addItem(ClosureMenuItem(L("Quit SunMemo"), key: "q") {

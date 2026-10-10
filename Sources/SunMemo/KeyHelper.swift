@@ -50,7 +50,7 @@ enum KeyHelper {
         case 45: return "N"
         case 46: return "M"
         case 47: return "."
-        case 49: return "Space"
+        case 49: return "␣"
         case 36: return "Return"
         case 48: return "Tab"
         case 51: return "Delete"

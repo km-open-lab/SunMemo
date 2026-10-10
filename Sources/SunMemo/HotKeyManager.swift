@@ -6,10 +6,10 @@ final class HotKeyManager: ObservableObject {
     static let shared = HotKeyManager()
 
     // Defaults:
-    // ⌃ ⌥ T (Toggle Line, T = 17)
+    // ⌃ ⌥ ␣ (Toggle Line, Space = 49)
     // ⌃ ⌥ N (New Memo, N = 45)
     // ⌃ ⌥ V (Hang Clipboard, V = 9)
-    static let defaultToggleKey = 17
+    static let defaultToggleKey = 49
     static let defaultToggleMods = controlKey | optionKey
     static let defaultMemoKey = 45
     static let defaultMemoMods = controlKey | optionKey
@@ -47,17 +47,24 @@ final class HotKeyManager: ObservableObject {
     var onHangClipboard: (() -> Void)?
 
     private var toggleHotKey: HotKey?
+    private var fallbackToggleHotKey: HotKey?
     private var memoHotKey: HotKey?
     private var pasteHotKey: HotKey?
 
     private init() {
         let ud = UserDefaults.standard
-        let savedToggleKey = ud.object(forKey: toggleKeyKey) as? Int
+        var savedToggleKey = ud.object(forKey: toggleKeyKey) as? Int
         let savedToggleMods = ud.object(forKey: toggleModsKey) as? Int
         let savedMemoKey = ud.object(forKey: memoKeyKey) as? Int
         let savedMemoMods = ud.object(forKey: memoModsKey) as? Int
         let savedPasteKey = ud.object(forKey: pasteKeyKey) as? Int
         let savedPasteMods = ud.object(forKey: pasteModsKey) as? Int
+
+        // Migration: If previously defaulted to 17 (T), migrate to 49 (Space) so ⌃ ⌥ ␣ works out-of-the-box
+        if savedToggleKey == 17 {
+            savedToggleKey = Self.defaultToggleKey
+            ud.set(49, forKey: toggleKeyKey)
+        }
 
         self.toggleKey = savedToggleKey ?? Self.defaultToggleKey
         self.toggleMods = savedToggleMods ?? Self.defaultToggleMods
@@ -76,11 +83,19 @@ final class HotKeyManager: ObservableObject {
 
     func rebind() {
         toggleHotKey = nil
+        fallbackToggleHotKey = nil
         memoHotKey = nil
         pasteHotKey = nil
 
         toggleHotKey = HotKey(keyCode: toggleKey, modifiers: toggleMods) { [weak self] in
             self?.onToggle?()
+        }
+
+        // When toggleKey is 49 (Space), also register 17 (T) as fallback alias so both shortcuts work
+        if toggleKey == 49 && toggleMods == (controlKey | optionKey) {
+            fallbackToggleHotKey = HotKey(keyCode: 17, modifiers: controlKey | optionKey) { [weak self] in
+                self?.onToggle?()
+            }
         }
 
         memoHotKey = HotKey(keyCode: memoKey, modifiers: memoMods) { [weak self] in
