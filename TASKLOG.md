@@ -1,5 +1,18 @@
 # 项目进度记录
 
+## 2026-10-10 — `--demo` 自动演示模式与宣传视频录制脚本
+
+- 用户原话或需求摘要：「你可以给它注入一个 --demo 自动化演示模式，做一支产品宣传视频吗」（选择：--demo 模式 + 在 Mac 上录屏）。
+- 完成内容与技术实现：
+  1. 新增 `Sources/SunMemo/Demo.swift`：以 `--demo` 启动时，设置改用独立的 `com.zhangkaiming.SunMemo.demo` 设置域，便签 / 截图 / Markdown 导出改到临时目录 `SunMemo-Demo`，两者在启动时清空、结束时删除；不启动截图监听、全局快捷键、欢迎页和更新检查；`Inbox.apply/restore` 在演示中直接返回，不改系统截图设置。
+  2. 约 50 秒的脚本化演示：空绳下拉 → 生成一张带截图区域元数据的风景图并沿真实截图动画飞上绳 → 在编辑器里逐字打出待办便签并挂上 → 绿色方版、粉色竖版便签 → 扑克牌式让位 → 绳上打勾 → 放大查看便签和图片 → 撕下归档 → 收起再拉下；屏幕底部显示字幕，结束后自动退出。字幕和便签内容走本地化，支持中 / 英 / 西。
+  3. 新增 `scripts/record-demo.sh`：用 `screencapture -v` 录制主显示器，以 `--demo` 启动 app，结束后停止录制；装了 ffmpeg 时另外转出 1080p MP4。
+  4. 删除 `scripts/inject-demo-data.swift`：它直接写入真实的用户数据目录并覆盖 `pegged` 设置，已由隔离的 `--demo` 取代。
+  5. README（中 / 英）新增「录制宣传视频」一节。
+- 验证结果：容器内没有 macOS / Swift 工具链，**未编译、未运行、未录制**；本地化键与代码一致（按 `scripts/check-strings.swift` 的规则核对），`record-demo.sh` 通过 `bash -n` 语法检查。需要在 Mac 上 `swift build` 后运行 `scripts/record-demo.sh` 验证。
+- 生产 / 发布边界：推送到分支 `claude/blissful-galileo-lfuf7d`，未合入 `main`。
+- 涉及文件：`Sources/SunMemo/Demo.swift`、`AppDelegate.swift`、`QuickMemoWindow.swift`、`Line.swift`、`Inbox.swift`、`MemoSyncManager.swift`、`ClipboardWatcher.swift`、`HotKeyManager.swift`、`UpdateChecker.swift`、`Resources/*/Localizable.strings`、`scripts/record-demo.sh`、`scripts/inject-demo-data.swift`（删除）、`README.md`、`README_en.md`、`TASKLOG.md`。
+
 ## 2026-10-10 22:20 CST — 合并 PR #1 并正式添加贡献者与共同作者致谢
 
 - 用户原话或需求摘要：「合并」「把提交pr的人一起也添加为共同作者可以吗」。

@@ -33,8 +33,8 @@ final class UpdateChecker: ObservableObject {
     }
 
     var autoCheckEnabled: Bool {
-        get { UserDefaults.standard.object(forKey: "autoCheckUpdates") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "autoCheckUpdates") }
+        get { Demo.defaults.object(forKey: "autoCheckUpdates") as? Bool ?? true }
+        set { Demo.defaults.set(newValue, forKey: "autoCheckUpdates") }
     }
 
     private var checkTimer: Timer?
@@ -128,7 +128,7 @@ final class UpdateChecker: ObservableObject {
                     self.availableUpdate = release
                     self.checkStatus = "发现新版本 v\(release.version)"
 
-                    let ignoredVersion = UserDefaults.standard.string(forKey: "ignoredUpdateVersion")
+                    let ignoredVersion = Demo.defaults.string(forKey: "ignoredUpdateVersion")
                     if userInitiated || ignoredVersion != release.version {
                         self.showUpdateAlert(for: release)
                     }
@@ -164,7 +164,7 @@ final class UpdateChecker: ObservableObject {
                 NSWorkspace.shared.open(release.htmlUrl)
             }
         } else if response == .alertThirdButtonReturn {
-            UserDefaults.standard.set(release.version, forKey: "ignoredUpdateVersion")
+            Demo.defaults.set(release.version, forKey: "ignoredUpdateVersion")
         }
     }
 

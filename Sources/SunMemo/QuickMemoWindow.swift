@@ -188,6 +188,32 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
         window.animator().setFrame(frame, display: true)
     }
 
+    // MARK: Demo hooks
+
+    /// Opens the editor for a new memo with this color and shape, empty.
+    func showForDemo(line: Line, color: String, aspectRatio: String) {
+        Drafts.store(MemoDraft(text: "", color: color, aspectRatio: aspectRatio), for: nil)
+        show(line: line)
+    }
+
+    /// The editor's text view, so the demo can type into it like a person.
+    var demoTextView: NSTextView? {
+        func find(_ view: NSView) -> NSTextView? {
+            if let text = view as? NSTextView { return text }
+            for sub in view.subviews { if let text = find(sub) { return text } }
+            return nil
+        }
+        if let text = window?.firstResponder as? NSTextView { return text }
+        return window?.contentView.flatMap(find)
+    }
+
+    /// Hangs what the editor holds, as ⌘Return does.
+    func commitForDemo() {
+        var draft = current
+        if let text = demoTextView?.string { draft.text = text }
+        save(draft)
+    }
+
     /// Closes the editor, asking first if there is unsaved text.
     func close() {
         requestClose()
@@ -216,16 +242,16 @@ private enum Drafts {
     private static func slot(_ id: UUID?) -> String { id?.uuidString ?? newMemo }
 
     private static func all() -> [String: MemoDraft] {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = Demo.defaults.data(forKey: key),
               let drafts = try? JSONDecoder().decode([String: MemoDraft].self, from: data) else { return [:] }
         return drafts
     }
 
     private static func save(_ drafts: [String: MemoDraft]) {
         if drafts.isEmpty {
-            UserDefaults.standard.removeObject(forKey: key)
+            Demo.defaults.removeObject(forKey: key)
         } else if let data = try? JSONEncoder().encode(drafts) {
-            UserDefaults.standard.set(data, forKey: key)
+            Demo.defaults.set(data, forKey: key)
         }
     }
 

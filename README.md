@@ -114,6 +114,20 @@ open build/SunMemo.app
 bash scripts/make-dmg.sh
 ```
 
+### 录制宣传视频（`--demo` 自动演示模式）
+
+`--demo` 启动参数会自动播放一段约 50 秒的演示：截图飞上晾衣绳、在编辑器里打字写便签、多色多比例卡片、扑克牌式让位、绳上打勾、放大查看、撕下归档、收起再拉下，并在屏幕底部显示字幕，结束后自动退出。
+
+演示只使用一次性的临时数据（独立的设置域和临时文件夹），**不会读写你的便签、截图、`~/Documents/SunMemo.md`，也不会改动系统截图设置**。
+
+```sh
+# 录制并输出 build/SunMemo-demo-zh-Hans.mov（装了 ffmpeg 还会输出 1080p MP4）
+bash scripts/record-demo.sh            # 中文字幕
+bash scripts/record-demo.sh en         # 英文字幕
+```
+
+录制前：给终端开启「系统设置 › 隐私与安全性 › 录屏」权限；隐藏桌面图标和不想入镜的窗口；把鼠标停在屏幕底部（演示不会移动鼠标）。只想看演示不录屏，可以直接运行 `open build/SunMemo.app --args --demo`。
+
 ---
 
 ## 🛠️ 项目结构与技术架构
@@ -132,12 +146,14 @@ SunMemo/
 │   ├── SettingsWindow.swift         # 快捷键自定义录制与防误触管理
 │   ├── ClipboardWatcher.swift       # 智能剪贴板监听与一键上绳
 │   ├── HotKeyManager.swift          # Carbon 全局热键底层监听与分发
+│   ├── Demo.swift                   # --demo 自动演示模式（隔离数据、脚本化演示、字幕）
 │   └── Resources/                   # 多语言本地化支持 (简体中文, English, Español)
 ├── scripts/
 │   ├── build-app.sh                 # 通用二进制架构编译与签名脚本
 │   ├── make-dmg.sh                  # 磁盘映像 DMG 自动化打包与 Finder 布局排版
 │   ├── make-icon.swift              # 用纯 CoreGraphics / AppKit 绘制 1024x1024 渐变图标
-│   └── make-dmg-background.swift    # DMG 视网膜安装背景图生成脚本
+│   ├── make-dmg-background.swift    # DMG 视网膜安装背景图生成脚本
+│   └── record-demo.sh               # 用 --demo 自动演示模式录制宣传视频
 └── LICENSE                          # MIT 开源协议与版权声明
 ```
 

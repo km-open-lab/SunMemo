@@ -18,9 +18,9 @@ final class ClipboardWatcher: ObservableObject {
     /// Whether to automatically hang new screenshot images from clipboard.
     /// Default is false to prevent accidental copies from clogging the clothesline.
     var isAutoHangEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: autoHangKey) }
+        get { Demo.defaults.bool(forKey: autoHangKey) }
         set {
-            UserDefaults.standard.set(newValue, forKey: autoHangKey)
+            Demo.defaults.set(newValue, forKey: autoHangKey)
             objectWillChange.send()
         }
     }

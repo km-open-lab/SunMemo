@@ -114,6 +114,20 @@ open build/SunMemo.app
 bash scripts/make-dmg.sh
 ```
 
+### Recording the Promo Video (`--demo` mode)
+
+Launched with `--demo`, SunMemo plays a scripted tour of about 50 seconds: a screenshot flying to the line, a memo typed in the editor, colors and shapes, the cards parting, ticking a to-do, the preview, tearing a memo off, and tucking the line away and back, with captions at the bottom of the screen. It quits when done.
+
+The tour runs on throwaway data (its own settings suite and a temporary folder). **It never reads or writes your memos, your screenshots or `~/Documents/SunMemo.md`, and never changes the macOS screenshot settings.**
+
+```sh
+# Records build/SunMemo-demo-en.mov (and a 1080p MP4 if ffmpeg is installed)
+bash scripts/record-demo.sh en         # English captions
+bash scripts/record-demo.sh zh-Hans    # Chinese captions
+```
+
+Before recording: give your terminal Screen Recording permission (System Settings › Privacy & Security › Screen Recording), hide desktop icons and windows you do not want in the shot, and park the pointer at the bottom of the screen (the demo never moves it). To just watch it, run `open build/SunMemo.app --args --demo`.
+
 ---
 
 ## 🛠️ Project Structure
@@ -135,12 +149,13 @@ SunMemo/
 │   ├── WelcomeWindow.swift          # SwiftUI onboarding guide
 │   ├── ClipboardWatcher.swift       # Smart clipboard monitoring & pinning
 │   ├── HotKeyManager.swift          # Low-level Carbon global hotkey dispatcher
+│   ├── Demo.swift                   # --demo tour: isolated data, scripted steps, captions
 │   └── Resources/                   # Localization (English, 简体中文, Español)
 ├── scripts/
 │   ├── build-app.sh                 # Universal binary build, icon generation & code signing
 │   ├── make-dmg.sh                  # Automated disk image creation with Finder layout
 │   ├── make-icon.swift              # App icon renderer using CoreGraphics / AppKit
-│   └── inject-demo-data.swift       # Demo data generator for clean screenshots
+│   └── record-demo.sh               # Records the promo video with the --demo tour
 └── LICENSE                          # MIT License
 ```
 

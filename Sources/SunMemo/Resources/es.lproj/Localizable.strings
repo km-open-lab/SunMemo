@@ -49,3 +49,24 @@
 "SunMemo already uses this shortcut for something else." = "SunMemo ya usa este atajo para otra cosa.";
 "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS rechazó este atajo, así que se mantiene el anterior. Probablemente otra app ya lo usa.";
 "A shortcut is already used by another app and does not work. Record a different one." = "Otra app ya usa un atajo y no funciona. Graba uno distinto.";
+
+/* Demo tour (--demo) */
+"Hang your thoughts on the clothesline" = "Las ideas, tendidas al sol";
+"Screenshots hang themselves on the line" = "Las capturas se cuelgan solas";
+"Jot a memo with ⌃⌥N" = "Apunta una nota con ⌃⌥N";
+"This week's release" = "Lanzamiento de esta semana";
+"Screenshots hang themselves" = "Capturas que se cuelgan solas";
+"Record the promo video" = "Grabar el vídeo promocional";
+"Ship v1.2" = "Publicar la v1.2";
+"Four colors, three shapes" = "Cuatro colores, tres formatos";
+"Idea" = "Idea";
+"A clothesline for everything you have not finished yet" = "Un tendedero para todo lo que aún no has terminado";
+"Weekend" = "Fin de semana";
+"Coffee by the window" = "Café junto a la ventana";
+"Bike along the coast" = "Ir en bici por la costa";
+"Water the plants" = "Regar las plantas";
+"Hover and the cards make room" = "Pasa el puntero y las tarjetas se apartan";
+"Tick off to-dos right on the line" = "Marca las tareas sin descolgarlas";
+"Click to take a card down and read it" = "Haz clic para descolgarla y leerla";
+"Tear it off. The text stays in SunMemo.md" = "Arráncala. El texto queda en SunMemo.md";
+"Push the pointer to the top edge to pull it down" = "Lleva el puntero al borde superior para bajarlo";

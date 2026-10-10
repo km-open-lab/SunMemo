@@ -54,22 +54,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if Inbox.isEnabled { Inbox.apply() }
         restoreSettingsOnTermination()
-        startWatcher()
+        // The demo shows only its own items, never real screenshots.
+        if !Demo.isActive { startWatcher() }
 
         ClipboardWatcher.shared.setup(line: line) { [weak self] url in
             self?.hangCapture(url)
         }
 
-        HotKeyManager.shared.start(
-            onToggle: { [weak self] in self?.toggle() },
-            onNewMemo: { [weak self] in
-                guard let self else { return }
-                QuickMemoWindowController.shared.show(line: self.line)
-            },
-            onHangClipboard: {
-                let _ = ClipboardWatcher.shared.hangCurrentClipboard()
-            }
-        )
+        // Not in the demo, so it never fights an installed SunMemo for them.
+        if !Demo.isActive {
+            HotKeyManager.shared.start(
+                onToggle: { [weak self] in self?.toggle() },
+                onNewMemo: { [weak self] in
+                    guard let self else { return }
+                    QuickMemoWindowController.shared.show(line: self.line)
+                },
+                onHangClipboard: {
+                    let _ = ClipboardWatcher.shared.hangCurrentClipboard()
+                }
+            )
+        }
 
         for name in [Notification.Name.sunMemoRevealLine, Notification.Name.tendederoRevealLine] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -280,12 +284,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        if Demo.isActive {
+            DemoDirector.run(self)
+            return
+        }
+
         if !Inbox.wasOffered {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?.offerInbox() }
         }
 
-        if !UserDefaults.standard.bool(forKey: "welcomed") {
-            UserDefaults.standard.set(true, forKey: "welcomed")
+        if !Demo.defaults.bool(forKey: "welcomed") {
+            Demo.defaults.set(true, forKey: "welcomed")
             keepOpen = true
             wanted = true
             refresh()
@@ -646,7 +655,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let inside = NSMouseInRect(mouse, zone, false)
         if inside && pinned && !MemoPreviewWindowController.shared.isOpen { pinned = false }
 
-        let busy = pinned || GrabView.isDragging || line.pressedID != nil || MemoPreviewWindowController.shared.isOpen || now < peekUntil
+        let busy = demoHold || pinned || GrabView.isDragging || line.pressedID != nil || MemoPreviewWindowController.shared.isOpen || now < peekUntil
         if inside || busy {
             awaySince = nil
         } else {
@@ -674,6 +683,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateCapacity() {
         line.maxItems = 35
+    }
+
+    // MARK: Demo hooks
+
+    /// Keeps the line down for the whole demo, wherever the pointer is.
+    var demoHold = false
+    var demoLine: Line { line }
+
+    /// Brings the line down on the main display, as the shortcut does.
+    func demoShowLine() {
+        keepOpen = true
+        wanted = true
+        panel.placeOnScreen(NSScreen.screens.first)
+        updateCapacity()
+        refresh()
+        reveal(pinned: true)
+    }
+
+    func demoHideLine() {
+        setRevealed(false)
+    }
+
+    /// Hangs an image as if it had just been captured.
+    func demoHang(_ url: URL) {
+        hangCapture(url)
     }
 
     // MARK: Menu bar
@@ -822,7 +856,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         moreMenu.addItem(ClosureMenuItem(L("Open screenshots folder")) { [weak self] in
             guard let self else { return }
-            NSWorkspace.shared.open(self.watcher.folder)
+            NSWorkspace.shared.open(self.watcher?.folder ?? Inbox.folder)
         })
 
         moreMenu.addItem(ClosureMenuItem("💡 欢迎与使用引导...") { [weak self] in

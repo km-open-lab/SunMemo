@@ -24,22 +24,22 @@ final class HotKeyManager: ObservableObject {
     private let pasteModsKey = "custom_paste_mods"
 
     @Published var toggleKey: Int {
-        didSet { UserDefaults.standard.set(toggleKey, forKey: toggleKeyKey) }
+        didSet { Demo.defaults.set(toggleKey, forKey: toggleKeyKey) }
     }
     @Published var toggleMods: Int {
-        didSet { UserDefaults.standard.set(toggleMods, forKey: toggleModsKey) }
+        didSet { Demo.defaults.set(toggleMods, forKey: toggleModsKey) }
     }
     @Published var memoKey: Int {
-        didSet { UserDefaults.standard.set(memoKey, forKey: memoKeyKey) }
+        didSet { Demo.defaults.set(memoKey, forKey: memoKeyKey) }
     }
     @Published var memoMods: Int {
-        didSet { UserDefaults.standard.set(memoMods, forKey: memoModsKey) }
+        didSet { Demo.defaults.set(memoMods, forKey: memoModsKey) }
     }
     @Published var pasteKey: Int {
-        didSet { UserDefaults.standard.set(pasteKey, forKey: pasteKeyKey) }
+        didSet { Demo.defaults.set(pasteKey, forKey: pasteKeyKey) }
     }
     @Published var pasteMods: Int {
-        didSet { UserDefaults.standard.set(pasteMods, forKey: pasteModsKey) }
+        didSet { Demo.defaults.set(pasteMods, forKey: pasteModsKey) }
     }
 
     enum Target: CaseIterable {
@@ -60,7 +60,7 @@ final class HotKeyManager: ObservableObject {
     private var pasteHotKey: HotKey?
 
     private init() {
-        let ud = UserDefaults.standard
+        let ud = Demo.defaults
         var savedToggleKey = ud.object(forKey: toggleKeyKey) as? Int
         let savedToggleMods = ud.object(forKey: toggleModsKey) as? Int
         let savedMemoKey = ud.object(forKey: memoKeyKey) as? Int

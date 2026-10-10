@@ -16,6 +16,7 @@ final class MemoSyncManager {
 
     /// Path to user-accessible markdown document in ~/Documents
     let markdownURL: URL = {
+        if Demo.isActive { return Demo.folder.appendingPathComponent("SunMemo.md") }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let newURL = docs.appendingPathComponent("SunMemo.md")
         let oldURL = docs.appendingPathComponent("Tendedero-Memos.md")
