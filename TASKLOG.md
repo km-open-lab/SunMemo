@@ -1,5 +1,20 @@
 # 项目进度记录
 
+## 2026-10-10 — 修复数据安全与安全性问题（代码审查 P0 1–6），更正 README 宣传口径
+
+- 用户原话或需求摘要：「先修 P0 的 1–6 条，同时把 README 里"双向同步""0 网络"的说法改准确。」
+- 完成内容与技术实现：
+  1. 测试用分布式通知（`com.tendedero.createTestMemo / discardFirstMemo` 等）包进 `#if DEBUG`，release 构建不再响应。
+  2. 便签编辑器不再静默丢稿：编辑内容逐键存为草稿（`UserDefaults` 的 `memoDrafts`，按便签分槽）；关闭、Esc、切换到其他便签时有未保存内容会询问「保留草稿 / 继续编辑 / 丢弃」；编辑中被撕下的便签保存时重新挂为新便签。
+  3. 「全部取下」在有便签时先确认。
+  4. `SunMemo.md` 文件头改为「只读导出，请勿在此编辑」。
+  5. 便签 JSON 与归档改为原子写入；写入失败会弹窗提示（30 秒内最多一次）；无法解析的便签文件移到 `Memos/Damaged/`，无法解析的归档另存一份，不再被覆盖；崩溃恢复扫描只读取 `memo_*.json`。
+  6. 快捷键录制要求包含 Control 或 Option，拒绝与 SunMemo 其他快捷键重复；检查 `RegisterEventHotKey` 的返回值，注册失败会恢复原快捷键并在设置里提示。
+  7. README（中/英）：「双向同步」改为单向只读导出；「100% 离线 / 0 网络」改为说明唯一的联网行为是可关闭的更新检查，并提示 iCloud「桌面与文稿」会同步导出文件。
+- 验证结果：容器内没有 macOS / Swift 工具链，**未编译、未运行**，只做了人工复查；本地化键与代码一致（按 `scripts/check-strings.swift` 的规则用脚本核对）。需要在 Mac 上执行 `swift build` 并手动验证上述流程。
+- 生产 / 发布边界：推送到分支 `claude/blissful-galileo-lfuf7d`，未合入 `main`，未发布。
+- 涉及文件：`Sources/SunMemo/AppDelegate.swift`、`QuickMemoWindow.swift`、`Line.swift`、`MemoSyncManager.swift`、`HotKey.swift`、`HotKeyManager.swift`、`SettingsWindow.swift`、`Resources/*/Localizable.strings`、`README.md`、`README_en.md`、`TASKLOG.md`。
+
 ## 2026-10-10 17:45 CST — 修复 README 图标裂链与建立完整英文文档（README_en.md）
 
 - 用户原话或需求摘要：「缺少图标 以及英文版本的」（提供 GitHub 页面图标图片破损链接截图）。

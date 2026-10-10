@@ -10,7 +10,7 @@
 <p align="center">
   <img src="docs/images/icon.png" width="128" height="128" alt="SunMemo App Icon">
   <br><br>
-  <strong>纯本地 · 离线隐私 · 极速流畅 · 兼容 macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
+  <strong>数据存本地 · 无账号无统计 · 极速流畅 · 兼容 macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
   <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.1.0)</strong></a>
   &nbsp;·&nbsp;
@@ -56,17 +56,19 @@
 - 截图卡片支持单击放大查看、双击一键复制，长按即可开启 macOS 原生 Markup 画笔标注。
 
 ### 💾 5. 本地实时 Markdown 同步与防丢归档 (Dual Markdown Persistence)
-- **永远不怕数据丢失**：所有在绳便签实时双向同步至用户文稿目录 `~/Documents/SunMemo.md`。
+- **只读 Markdown 导出**：每次便签变化，SunMemo 都会把所有在绳便签和归档整份导出到 `~/Documents/SunMemo.md`。这是**单向导出**：文件每次都会被整份重写，在文件里做的修改会被覆盖、不会回到 SunMemo；要改便签请在 SunMemo 里编辑。
+- **防丢稿**：编辑中的内容会自动存为草稿，关闭编辑器或切换到别的便签时会先询问；便签文件采用原子写入，写入失败会弹窗提示。
 - **撕下便签带时间戳归档**：点击卡片撕下后自动沉淀至 `# 📦 历史已撕下便签归档`，精确记录创建时间与撕下时间戳。
-- 与 **Obsidian、Typora、VS Code、macOS 备忘录** 无缝配合，随时检索回顾。
+- 可以用 **Obsidian、Typora、VS Code** 等打开查看和检索；需要二次整理时请先另存一份。
 
 ### 🔄 6. 自动更新检测与设置管理 (Auto-Update & Preferences)
 - 内置 GitHub Releases 自动版本检查，新版本发布时在菜单栏友好提示，一键跳转更新。
 - 专属偏好设置面板，支持自定义录制全局快捷键与开关剪贴板自动挂绳。
 
-### 🛡️ 7. 纯本地安全与隐私保护 (100% Offline & Private)
-- **0 网络追踪**、**0 账号体系**、**0 第三方 SDK**。
-- 所有文字、截图与配置文件 100% 留存在你的 Mac 本机。
+### 🛡️ 7. 本地优先与隐私 (Local-first & Private)
+- **0 账号体系**、**0 统计与追踪**、**0 第三方 SDK**。
+- **唯一的联网行为是检查更新**：默认开启，启动时和之后每 24 小时请求一次 GitHub Releases API（`api.github.com`），只读取最新版本号，不上传任何便签或截图。可在「偏好设置 → 软件版本与自动更新」中关闭。
+- 便签、截图与配置都保存在本机。注意：如果开启了 iCloud「桌面与文稿」同步，`~/Documents/SunMemo.md` 会随文稿目录一起同步到 iCloud。
 
 ---
 
@@ -125,7 +127,7 @@ SunMemo/
 │   ├── LineView.swift               # 顶部透明画板、绳索抛物线几何与动态扇面叠放布局
 │   ├── PeggedView.swift             # 便签卡片视图、交互复选框点击、悬停放大聚焦
 │   ├── QuickMemoWindow.swift        # 原生独立速记弹窗、Markdown 工具栏与色彩切换
-│   ├── MemoSyncManager.swift        # 本地 Markdown 双向持久化与撕下时间戳归档
+│   ├── MemoSyncManager.swift        # 单向导出 Markdown（只读备份）与撕下时间戳归档
 │   ├── WelcomeWindow.swift          # 新版 SwiftUI 欢迎使用与引导弹窗
 │   ├── SettingsWindow.swift         # 快捷键自定义录制与防误触管理
 │   ├── ClipboardWatcher.swift       # 智能剪贴板监听与一键上绳
@@ -145,4 +147,4 @@ SunMemo/
 
 - 本项目基于 **MIT License** 开源。
 - 灵感与基础物理摆动渲染来源于 Alejandro Buján 的优秀作品 [Tendedero](https://github.com/alejandrobujan/tendedero)。
-- SunMemo 按照上游许可证要求，使用了完全独立的全新品牌命名、独立设计的暖阳便签图标（`scripts/make-icon.swift`）、重构优化的多色便签速记体系、交互式待办清单系统、扇面自适应叠放算法、全新的 SwiftUI 引导界面以及 `SunMemo.md` 本地双向防丢归档系统。
+- SunMemo 按照上游许可证要求，使用了完全独立的全新品牌命名、独立设计的暖阳便签图标（`scripts/make-icon.swift`）、重构优化的多色便签速记体系、交互式待办清单系统、扇面自适应叠放算法、全新的 SwiftUI 引导界面以及 `SunMemo.md` 本地 Markdown 导出与撕下归档。

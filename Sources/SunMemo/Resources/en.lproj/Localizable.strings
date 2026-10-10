@@ -30,3 +30,24 @@
 
 /* PeggedView */
 "Copied" = "Copied";
+
+/* Memo editor, saving and shortcuts */
+"Take everything down?" = "Take everything down?";
+"%d memos will be removed from the line. Their text stays in the archive of ~/Documents/SunMemo.md, but they cannot be hung back from SunMemo." = "%d memos will be removed from the line. Their text stays in the archive of ~/Documents/SunMemo.md, but they cannot be hung back from SunMemo.";
+"Cancel" = "Cancel";
+"This memo is not on the line yet" = "This memo is not on the line yet";
+"Keep it as a draft and it comes back the next time you write a new memo." = "Keep it as a draft and it comes back the next time you write a new memo.";
+"This memo has unsaved changes" = "This memo has unsaved changes";
+"Keep them as a draft and they come back the next time you edit this memo." = "Keep them as a draft and they come back the next time you edit this memo.";
+"Keep Draft" = "Keep Draft";
+"Keep Editing" = "Keep Editing";
+"Could not save the memo" = "Could not save the memo";
+"Your text is still on the line. Check that there is free disk space, then edit the memo to save it again." = "Your text is still on the line. Check that there is free disk space, then edit the memo to save it again.";
+"A memo could not be read" = "A memo could not be read";
+"The damaged file was moved to %@ so nothing is lost." = "The damaged file was moved to %@ so nothing is lost.";
+"The memo archive could not be read" = "The memo archive could not be read";
+"Could not save the memo archive" = "Could not save the memo archive";
+"Include Control or Option, so the shortcut does not take keys away from other apps." = "Include Control or Option, so the shortcut does not take keys away from other apps.";
+"SunMemo already uses this shortcut for something else." = "SunMemo already uses this shortcut for something else.";
+"macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already.";
+"A shortcut is already used by another app and does not work. Record a different one." = "A shortcut is already used by another app and does not work. Record a different one.";

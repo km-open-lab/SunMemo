@@ -1,10 +1,14 @@
 import Carbon
+import os
 
 /// Global shortcut through the Carbon hot key API. Unlike a global
 /// key monitor, it needs no Accessibility permission.
 final class HotKey {
     private var ref: EventHotKeyRef?
     private let id: UInt32
+    /// False when macOS refused the shortcut, usually because another app
+    /// already registered it.
+    private(set) var isRegistered = false
     private static var handlers: [UInt32: () -> Void] = [:]
     private static var isHandlerInstalled = false
     private static var nextId: UInt32 = 1
@@ -33,7 +37,11 @@ final class HotKey {
         }
 
         let eventHotKeyID = EventHotKeyID(signature: OSType(0x5445_4E44), id: currentId) // "TEND"
-        RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), eventHotKeyID, GetApplicationEventTarget(), 0, &ref)
+        let status = RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), eventHotKeyID, GetApplicationEventTarget(), 0, &ref)
+        isRegistered = status == noErr
+        if !isRegistered {
+            log.error("Could not register hot key \(keyCode, privacy: .public)/\(modifiers, privacy: .public): \(status, privacy: .public)")
+        }
     }
 
     deinit {

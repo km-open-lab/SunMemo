@@ -125,11 +125,8 @@ final class Line: ObservableObject {
         guard !items.contains(where: { $0.url == url && !$0.falling }) else { return nil }
 
         var item: Pegged
-        if url.pathExtension.lowercased() == "json",
-           let data = try? Data(contentsOf: url) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            guard let memo = try? decoder.decode(MemoData.self, from: data) else { return nil }
+        if url.pathExtension.lowercased() == "json" {
+            guard let memo = Self.readMemo(at: url) else { return nil }
             let thumb = makeMemoThumbnail(text: memo.text, color: memo.color, isDone: memo.isDone)
             item = Pegged(id: memo.id, url: url, thumb: thumb, isMemo: true,
                           memoText: memo.text, memoColor: memo.color,
@@ -160,21 +157,15 @@ final class Line: ObservableObject {
         guard !trimmed.isEmpty else { return nil }
 
         let id = UUID()
-        let memoData = MemoData(id: id, text: trimmed, color: color, isDone: false, createdAt: Date(), aspectRatio: aspectRatio)
-        try? FileManager.default.createDirectory(at: Self.memosFolder, withIntermediateDirectories: true)
         let fileURL = Self.memosFolder.appendingPathComponent("memo_\(id.uuidString).json")
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(memoData) else { return nil }
-        try? data.write(to: fileURL)
-
         let thumb = makeMemoThumbnail(text: trimmed, color: color, isDone: false)
-        var item = Pegged(id: id, url: fileURL, thumb: thumb, flying: flying, isMemo: true,
+        let item = Pegged(id: id, url: fileURL, thumb: thumb, flying: flying, isMemo: true,
                           memoText: trimmed, memoColor: color,
-                          isDone: false, createdAt: memoData.createdAt,
+                          isDone: false, createdAt: Date(),
                           aspectRatio: aspectRatio)
-        item.flying = flying
+        // Hung even if the write fails: the text stays visible on the line,
+        // and the next edit tries to save it again.
+        writeMemo(item)
         items.append(item)
 
         // Memos are never auto-dropped! Cards stack and overlap smoothly.
@@ -197,30 +188,14 @@ final class Line: ObservableObject {
             items[i].aspectRatio = aspectRatio
         }
         items[i].thumb = makeMemoThumbnail(text: trimmed, color: items[i].memoColor, isDone: items[i].isDone)
-
-        let memoData = MemoData(id: id, text: trimmed, color: items[i].memoColor,
-                                isDone: items[i].isDone, createdAt: items[i].createdAt,
-                                aspectRatio: items[i].aspectRatio)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(memoData) {
-            try? data.write(to: items[i].url)
-        }
+        writeMemo(items[i])
         save()
-        MemoSyncManager.shared.sync(items: items)
     }
 
     func updateMemoAspectRatio(id: UUID, aspectRatio: String) {
         guard let i = items.firstIndex(where: { $0.id == id && $0.isMemo }) else { return }
         items[i].aspectRatio = aspectRatio
-        let memoData = MemoData(id: id, text: items[i].memoText, color: items[i].memoColor,
-                                isDone: items[i].isDone, createdAt: items[i].createdAt,
-                                aspectRatio: aspectRatio)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(memoData) {
-            try? data.write(to: items[i].url)
-        }
+        writeMemo(items[i])
         save()
         play("Tink", volume: 0.25)
     }
@@ -230,14 +205,7 @@ final class Line: ObservableObject {
         items[i].isDone.toggle()
         items[i].thumb = makeMemoThumbnail(text: items[i].memoText, color: items[i].memoColor, isDone: items[i].isDone)
 
-        let memoData = MemoData(id: id, text: items[i].memoText, color: items[i].memoColor,
-                                isDone: items[i].isDone, createdAt: items[i].createdAt,
-                                aspectRatio: items[i].aspectRatio)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(memoData) {
-            try? data.write(to: items[i].url)
-        }
+        writeMemo(items[i])
         save()
         if items[i].isDone { play("Pop", volume: 0.25) }
     }
@@ -250,14 +218,7 @@ final class Line: ObservableObject {
         items[i].isDone = result.allDone
         items[i].thumb = makeMemoThumbnail(text: result.newText, color: items[i].memoColor, isDone: items[i].isDone)
 
-        let memoData = MemoData(id: id, text: result.newText, color: items[i].memoColor,
-                                isDone: items[i].isDone, createdAt: items[i].createdAt,
-                                aspectRatio: items[i].aspectRatio)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(memoData) {
-            try? data.write(to: items[i].url)
-        }
+        writeMemo(items[i])
         save()
         play("Pop", volume: 0.25)
     }
@@ -443,12 +404,89 @@ final class Line: ObservableObject {
 
         // Crash-recovery: scan Memos folder in case app crashed before save() or UserDefaults was lost
         if let memoFiles = try? FileManager.default.contentsOfDirectory(at: Self.memosFolder, includingPropertiesForKeys: nil) {
-            for file in memoFiles where file.pathExtension.lowercased() == "json" && !loadedPaths.contains(file.path) {
+            for file in memoFiles where Self.isMemoFile(file) && !loadedPaths.contains(file.path) {
                 hang(file, quietly: true)
             }
         }
 
         MemoSyncManager.shared.sync(items: items)
+    }
+
+    // MARK: Memo files
+
+    /// Writes a memo's file atomically, so a crash mid-write never leaves half
+    /// a file behind. A failure is reported instead of silently ignored.
+    @discardableResult
+    private func writeMemo(_ item: Pegged) -> Bool {
+        let memo = MemoData(id: item.id, text: item.memoText, color: item.memoColor,
+                            isDone: item.isDone, createdAt: item.createdAt,
+                            aspectRatio: item.aspectRatio)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        do {
+            try FileManager.default.createDirectory(at: Self.memosFolder, withIntermediateDirectories: true)
+            try encoder.encode(memo).write(to: item.url, options: .atomic)
+            return true
+        } catch {
+            log.error("Could not save memo \(item.url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            Self.warn(L("Could not save the memo"),
+                      L("Your text is still on the line. Check that there is free disk space, then edit the memo to save it again.")
+                        + "\n\n" + error.localizedDescription)
+            return false
+        }
+    }
+
+    /// Our own memo files: memo_<id>.json in the memos folder. Anything else
+    /// there, such as the archive, is never read as a memo or moved.
+    static func isMemoFile(_ url: URL) -> Bool {
+        url.pathExtension.lowercased() == "json"
+            && url.lastPathComponent.hasPrefix("memo_")
+            && url.deletingLastPathComponent().standardizedFileURL.path == memosFolder.standardizedFileURL.path
+    }
+
+    /// Reads a memo file. One that exists but cannot be decoded is moved
+    /// aside and reported, instead of silently disappearing from the line.
+    private static func readMemo(at url: URL) -> MemoData? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        do {
+            return try decoder.decode(MemoData.self, from: data)
+        } catch {
+            log.error("Could not read memo \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            guard isMemoFile(url) else { return nil }
+            let damaged = memosFolder.appendingPathComponent("Damaged", isDirectory: true)
+            let stamp = Int(Date().timeIntervalSince1970)
+            let target = damaged.appendingPathComponent("\(url.deletingPathExtension().lastPathComponent)-\(stamp).json")
+            do {
+                try FileManager.default.createDirectory(at: damaged, withIntermediateDirectories: true)
+                try FileManager.default.moveItem(at: url, to: target)
+                warn(L("A memo could not be read"),
+                     String(format: L("The damaged file was moved to %@ so nothing is lost."), target.path))
+            } catch {
+                log.error("Could not move damaged memo aside: \(error.localizedDescription, privacy: .public)")
+            }
+            return nil
+        }
+    }
+
+    private static var lastWarning = Date.distantPast
+
+    /// Shows a problem to the user, at most once every half minute so a
+    /// failing disk does not bury them in alerts.
+    static func warn(_ message: String, _ info: String) {
+        let now = Date()
+        guard now.timeIntervalSince(lastWarning) > 30 else { return }
+        lastWarning = now
+        // After the current change has finished, never in the middle of it.
+        Task { @MainActor in
+            let alert = NSAlert()
+            alert.messageText = message
+            alert.informativeText = info
+            alert.alertStyle = .warning
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
     }
 
     // MARK: Helpers

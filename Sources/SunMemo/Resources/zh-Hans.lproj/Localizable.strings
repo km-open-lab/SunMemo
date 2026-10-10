@@ -28,3 +28,24 @@
 
 /* PeggedView */
 "Copied" = "已复制";
+
+/* Memo editor, saving and shortcuts */
+"Take everything down?" = "全部取下？";
+"%d memos will be removed from the line. Their text stays in the archive of ~/Documents/SunMemo.md, but they cannot be hung back from SunMemo." = "将从晾衣绳上取下 %d 张便签。文字会保留在 ~/Documents/SunMemo.md 的归档里，但无法在 SunMemo 中重新挂回。";
+"Cancel" = "取消";
+"This memo is not on the line yet" = "这张便签还没挂上";
+"Keep it as a draft and it comes back the next time you write a new memo." = "保留为草稿，下次新建便签时会自动恢复。";
+"This memo has unsaved changes" = "这张便签有未保存的修改";
+"Keep them as a draft and they come back the next time you edit this memo." = "保留为草稿，下次编辑这张便签时会自动恢复。";
+"Keep Draft" = "保留草稿";
+"Keep Editing" = "继续编辑";
+"Could not save the memo" = "便签保存失败";
+"Your text is still on the line. Check that there is free disk space, then edit the memo to save it again." = "文字仍挂在绳上。请确认磁盘有剩余空间，然后编辑这张便签再保存一次。";
+"A memo could not be read" = "有一张便签无法读取";
+"The damaged file was moved to %@ so nothing is lost." = "已把损坏的文件移到 %@，内容不会丢失。";
+"The memo archive could not be read" = "便签归档无法读取";
+"Could not save the memo archive" = "便签归档保存失败";
+"Include Control or Option, so the shortcut does not take keys away from other apps." = "请包含 Control 或 Option，以免快捷键抢走其他应用的按键。";
+"SunMemo already uses this shortcut for something else." = "SunMemo 已经把这个快捷键用在别的功能上了。";
+"macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS 拒绝了这个快捷键，已保留原来的设置。可能已有其他应用在使用它。";
+"A shortcut is already used by another app and does not work. Record a different one." = "有快捷键已被其他应用占用，目前不起作用。请换一个重新录制。";
