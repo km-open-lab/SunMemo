@@ -3,10 +3,6 @@
    swift scripts/check-strings.swift to check. */
 
 /* AppDelegate */
-"Let Tendedero handle your screenshots?" = "Let Tendedero handle your screenshots?";
-"Screenshots will hang on the line the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Tendedero quits." = "Screenshots will hang on the line the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Tendedero quits.";
-"Turn on" = "Turn on";
-"Not now" = "Not now";
 "Hide line" = "Hide line";
 "Show line" = "Show line";
 "Take everything down" = "Take everything down";
@@ -15,9 +11,9 @@
 "Open screenshots folder" = "Open screenshots folder";
 "Sounds" = "Sounds";
 "Open at login" = "Open at login";
-"Quit Tendedero" = "Quit Tendedero";
+"Quit SunMemo" = "Quit SunMemo";
 "Could not change the login setting" = "Could not change the login setting";
-"Move Tendedero to the Applications folder and try again." = "Move Tendedero to the Applications folder and try again.";
+"Move SunMemo to the Applications folder and try again." = "Move SunMemo to the Applications folder and try again.";
 
 /* GrabArea */
 "Copy" = "Copy";

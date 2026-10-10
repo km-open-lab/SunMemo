@@ -3,7 +3,7 @@
 // Usage: swift scripts/check-strings.swift
 import Foundation
 
-let sources = URL(fileURLWithPath: "Sources/Tendedero")
+let sources = URL(fileURLWithPath: "Sources/SunMemo")
 let resources = sources.appendingPathComponent("Resources")
 let fm = FileManager.default
 

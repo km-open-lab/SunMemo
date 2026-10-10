@@ -1,5 +1,5 @@
-// Draws the Tendedero app icon: two screenshots in crisp glass frames,
-// held by aluminium clips on a thin line, over a soft gradient.
+// Draws the SunMemo (晾想法) app icon:
+// A warm sunrise squircle, clothesline, and hanging pastel memo cards with checklists.
 // Usage: swift scripts/make-icon.swift out.png
 import AppKit
 
@@ -19,34 +19,47 @@ func color(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> NSColo
 
 func shadow(_ alpha: CGFloat, blur: CGFloat, y: CGFloat) {
     let s = NSShadow()
-    s.shadowColor = color(20, 24, 48, alpha)
+    s.shadowColor = color(15, 20, 45, alpha)
     s.shadowBlurRadius = blur
     s.shadowOffset = NSSize(width: 0, height: y)
     s.set()
 }
 
-// Body, following the macOS icon grid: 824pt square, 100pt margin.
+// MARK: - Squircle Body (macOS Icon Grid: 824pt square, 100pt margin)
 let body = NSRect(x: 100, y: 100, width: 824, height: 824)
 let shape = NSBezierPath(roundedRect: body, xRadius: 185, yRadius: 185)
 
 ctx.saveGState()
-shadow(0.30, blur: 26, y: -12)
-color(200, 210, 240).setFill()
+shadow(0.32, blur: 30, y: -16)
+color(240, 210, 180).setFill()
 shape.fill()
 ctx.restoreGState()
 
 ctx.saveGState()
 shape.addClip()
-NSGradient(colors: [color(132, 170, 255), color(176, 160, 250), color(255, 190, 196)],
-           atLocations: [0, 0.55, 1], colorSpace: .sRGB)!
-    .draw(in: body, angle: -60)
-// Soft light from the top.
-NSGradient(colors: [color(255, 255, 255, 0.35), color(255, 255, 255, 0)])!
+
+// Warm sunrise gradient background
+NSGradient(colors: [
+    color(255, 175, 75),   // Warm morning amber
+    color(255, 120, 110),  // Coral peach
+    color(135, 140, 245)   // Soft sky violet
+], atLocations: [0.0, 0.52, 1.0], colorSpace: .sRGB)!
+    .draw(in: body, angle: -65)
+
+// Golden morning sun glow in top right
+let sunCenter = NSPoint(x: 740, y: 740)
+let sunGradient = NSGradient(colors: [color(255, 255, 220, 0.75), color(255, 230, 120, 0.25), color(255, 255, 255, 0)],
+                             atLocations: [0, 0.45, 1], colorSpace: .sRGB)!
+sunGradient.draw(fromCenter: sunCenter, radius: 0, toCenter: sunCenter, radius: 260, options: [])
+
+// Soft specular highlight from top
+NSGradient(colors: [color(255, 255, 255, 0.40), color(255, 255, 255, 0)],
+           atLocations: [0, 1], colorSpace: .sRGB)!
     .draw(in: NSRect(x: body.minX, y: body.midY, width: body.width, height: body.height / 2), angle: -90)
 
-// The line
-let left = NSPoint(x: 60, y: 700), right = NSPoint(x: 964, y: 700)
-let control = NSPoint(x: 512, y: 590)
+// MARK: - The Clothesline
+let left = NSPoint(x: 60, y: 720), right = NSPoint(x: 964, y: 720)
+let control = NSPoint(x: 512, y: 610)
 func lineY(_ x: CGFloat) -> CGFloat {
     let t = (x - left.x) / (right.x - left.x)
     return (1 - t) * (1 - t) * left.y + 2 * (1 - t) * t * control.y + t * t * right.y
@@ -59,114 +72,158 @@ func linePath() -> NSBezierPath {
             controlPoint2: NSPoint(x: right.x + (control.x - right.x) * 2 / 3, y: right.y + (control.y - right.y) * 2 / 3))
     return p
 }
+
 ctx.saveGState()
-shadow(0.25, blur: 8, y: -5)
+shadow(0.25, blur: 10, y: -6)
 let line = linePath()
-line.lineWidth = 9
-color(110, 116, 140).setStroke()
+line.lineWidth = 10
+color(90, 80, 110).setStroke()
 line.stroke()
 ctx.restoreGState()
+
 let highlight = linePath()
 highlight.lineWidth = 3
-highlight.transform(using: AffineTransform(translationByX: 0, byY: 2))
-color(255, 255, 255, 0.55).setStroke()
+highlight.transform(using: AffineTransform(translationByX: 0, byY: 2.5))
+color(255, 255, 255, 0.65).setStroke()
 highlight.stroke()
 
-// A screenshot in a glass frame, hanging from a clip.
-func hang(centerX: CGFloat, width: CGFloat, height: CGFloat, angle: CGFloat, content: (NSRect) -> Void) {
-    let top = lineY(centerX) + 34
+// MARK: - Hanging Memo Card Helper
+func hangMemo(centerX: CGFloat, width: CGFloat, height: CGFloat, angle: CGFloat, bgColors: [NSColor], isTodo: Bool) {
+    let top = lineY(centerX) + 38
     ctx.saveGState()
     ctx.translateBy(x: centerX, y: top)
     ctx.rotate(by: angle * .pi / 180)
 
-    let radius: CGFloat = 64, inset: CGFloat = 18
-    let frame = NSRect(x: -width / 2, y: -height, width: width, height: height)
-    let framePath = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
+    let radius: CGFloat = 48
+    let cardRect = NSRect(x: -width / 2, y: -height, width: width, height: height)
+    let cardPath = NSBezierPath(roundedRect: cardRect, xRadius: radius, yRadius: radius)
 
-    // Glass: translucent white body, soft shadow, top-lit edge.
+    // Soft card shadow
     ctx.saveGState()
-    shadow(0.28, blur: 40, y: -22)
-    color(255, 255, 255, 0.42).setFill()
-    framePath.fill()
+    shadow(0.35, blur: 36, y: -20)
+    color(255, 255, 255).setFill()
+    cardPath.fill()
     ctx.restoreGState()
-    NSGradient(colors: [color(255, 255, 255, 0.30), color(255, 255, 255, 0.05)])!
-        .draw(in: framePath, angle: -90)
 
-    let photoRect = frame.insetBy(dx: inset, dy: inset)
-    let photoPath = NSBezierPath(roundedRect: photoRect, xRadius: radius - inset, yRadius: radius - inset)
+    // Card gradient fill
+    NSGradient(colors: bgColors, atLocations: [0, 1], colorSpace: .sRGB)!
+        .draw(in: cardPath, angle: -85)
+
+    // Subtle card border
+    color(0, 0, 0, 0.08).setStroke()
+    cardPath.lineWidth = 2
+    cardPath.stroke()
+
+    // Draw content on card
     ctx.saveGState()
-    photoPath.addClip()
-    content(photoRect)
-    ctx.restoreGState()
+    cardPath.addClip()
 
-    // Top-lit edge: a thin ring, brighter at the top.
-    ctx.saveGState()
-    let ring = NSBezierPath(roundedRect: frame, xRadius: radius, yRadius: radius)
-    ring.append(NSBezierPath(roundedRect: frame.insetBy(dx: 4, dy: 4), xRadius: radius - 4, yRadius: radius - 4))
-    ring.windingRule = .evenOdd
-    ring.addClip()
-    NSGradient(colors: [color(255, 255, 255, 0.95), color(255, 255, 255, 0.30)])!.draw(in: frame, angle: -90)
-    ctx.restoreGState()
+    if isTodo {
+        // Checklist rows
+        let startY = cardRect.maxY - 75
+        let spacing: CGFloat = 62
 
-    // Aluminium clip
-    let clip = NSRect(x: -15, y: -58, width: 30, height: 86)
-    let clipPath = NSBezierPath(roundedRect: clip, xRadius: 11, yRadius: 11)
-    ctx.saveGState()
-    shadow(0.35, blur: 8, y: -5)
-    color(200, 200, 205).setFill()
-    clipPath.fill()
-    ctx.restoreGState()
-    NSGradient(colors: [color(170, 172, 180), color(240, 241, 245), color(212, 214, 220), color(150, 152, 160)],
-               atLocations: [0, 0.35, 0.65, 1], colorSpace: .sRGB)!
-        .draw(in: clipPath, angle: 0)
-    color(40, 40, 50, 0.35).setFill()
-    NSBezierPath(roundedRect: NSRect(x: -9, y: -6, width: 18, height: 5), xRadius: 2.5, yRadius: 2.5).fill()
-    clipPath.lineWidth = 2
-    color(255, 255, 255, 0.7).setStroke()
-    clipPath.stroke()
+        // Row 1: Checked item
+        drawCheckRow(y: startY, width: width, checked: true, textWidth: 160)
+        // Row 2: Checked item
+        drawCheckRow(y: startY - spacing, width: width, checked: true, textWidth: 190)
+        // Row 3: Pending item
+        drawCheckRow(y: startY - spacing * 2, width: width, checked: false, textWidth: 140)
+        // Row 4: Pending item
+        drawCheckRow(y: startY - spacing * 3, width: width, checked: false, textWidth: 110)
+    } else {
+        // Idea Note (Sun / Sparkle header + lines)
+        let cx: CGFloat = 0
+        let iconY = cardRect.maxY - 90
 
-    ctx.restoreGState()
-}
+        // Golden spark / sun dot
+        color(255, 160, 50).setFill()
+        NSBezierPath(ovalIn: NSRect(x: cx - 22, y: iconY, width: 44, height: 44)).fill()
 
-// Left: a small app window.
-hang(centerX: 330, width: 340, height: 400, angle: 3) { r in
-    color(248, 249, 252).setFill(); r.fill()
-    let bar = NSRect(x: r.minX, y: r.maxY - 56, width: r.width, height: 56)
-    color(232, 234, 240).setFill(); bar.fill()
-    for (i, c) in [color(255, 95, 87), color(254, 188, 46), color(40, 200, 64)].enumerated() {
-        c.setFill()
-        NSBezierPath(ovalIn: NSRect(x: r.minX + 26 + CGFloat(i) * 30, y: bar.midY - 9, width: 18, height: 18)).fill()
+        // Content lines
+        let startY = iconY - 55
+        for (i, w) in [180, 200, 160, 130].enumerated() {
+            let ry = startY - CGFloat(i) * 44
+            color(0, 0, 0, 0.18).setFill()
+            let p = NSBezierPath(roundedRect: NSRect(x: -CGFloat(w) / 2, y: ry, width: CGFloat(w), height: 14), xRadius: 7, yRadius: 7)
+            p.fill()
+        }
     }
-    color(100, 120, 255).setFill()
-    NSBezierPath(roundedRect: NSRect(x: r.minX + 26, y: bar.minY - 70, width: r.width * 0.55, height: 26), xRadius: 8, yRadius: 8).fill()
-    color(200, 204, 216).setFill()
-    for i in 0..<5 {
-        let w = r.width * [0.78, 0.66, 0.72, 0.5, 0.62][i]
-        NSBezierPath(roundedRect: NSRect(x: r.minX + 26, y: bar.minY - 120 - CGFloat(i) * 38, width: w, height: 16), xRadius: 8, yRadius: 8).fill()
+
+    ctx.restoreGState()
+
+    // Wooden Clothespin clipping top of card
+    drawClothespin()
+
+    ctx.restoreGState()
+}
+
+func drawCheckRow(y: CGFloat, width: CGFloat, checked: Bool, textWidth: CGFloat) {
+    let boxX = -width / 2 + 38
+    let boxRect = NSRect(x: boxX, y: y, width: 28, height: 28)
+
+    if checked {
+        color(76, 175, 80).setFill()
+        let bp = NSBezierPath(roundedRect: boxRect, xRadius: 7, yRadius: 7)
+        bp.fill()
+
+        // Checkmark
+        let check = NSBezierPath()
+        check.move(to: NSPoint(x: boxX + 6, y: y + 14))
+        check.line(to: NSPoint(x: boxX + 11, y: y + 8))
+        check.line(to: NSPoint(x: boxX + 22, y: y + 21))
+        color(255, 255, 255).setStroke()
+        check.lineWidth = 3.5
+        check.lineCapStyle = .round
+        check.stroke()
+
+        // Text line (grey strikethrough)
+        let lineRect = NSRect(x: boxX + 44, y: y + 8, width: textWidth, height: 12)
+        color(0, 0, 0, 0.22).setFill()
+        NSBezierPath(roundedRect: lineRect, xRadius: 6, yRadius: 6).fill()
+    } else {
+        color(0, 0, 0, 0.18).setStroke()
+        let bp = NSBezierPath(roundedRect: boxRect, xRadius: 7, yRadius: 7)
+        bp.lineWidth = 2.5
+        bp.stroke()
+
+        // Text line (active)
+        let lineRect = NSRect(x: boxX + 44, y: y + 8, width: textWidth, height: 12)
+        color(40, 45, 60, 0.70).setFill()
+        NSBezierPath(roundedRect: lineRect, xRadius: 6, yRadius: 6).fill()
     }
 }
 
-// Right: a sunset photo.
-hang(centerX: 695, width: 320, height: 270, angle: -3) { r in
-    NSGradient(colors: [color(255, 150, 90), color(255, 110, 130), color(120, 90, 200)])!.draw(in: r, angle: 90)
-    color(255, 230, 160).setFill()
-    NSBezierPath(ovalIn: NSRect(x: r.midX - 40, y: r.minY + 60, width: 80, height: 80)).fill()
-    let hills = NSBezierPath()
-    hills.move(to: NSPoint(x: r.minX, y: r.minY + 70))
-    hills.curve(to: NSPoint(x: r.maxX, y: r.minY + 50), controlPoint1: NSPoint(x: r.minX + r.width * 0.3, y: r.minY + 130),
-                controlPoint2: NSPoint(x: r.minX + r.width * 0.6, y: r.minY + 10))
-    hills.line(to: NSPoint(x: r.maxX, y: r.minY)); hills.line(to: NSPoint(x: r.minX, y: r.minY)); hills.close()
-    color(70, 50, 130).setFill(); hills.fill()
+func drawClothespin() {
+    let pinW: CGFloat = 26
+    let pinH: CGFloat = 90
+    let pinRect = NSRect(x: -pinW / 2, y: -45, width: pinW, height: pinH)
+
+    ctx.saveGState()
+    shadow(0.32, blur: 10, y: -5)
+    // Warm wood / honey clip gradient
+    NSGradient(colors: [color(245, 205, 140), color(210, 160, 95)], atLocations: [0, 1], colorSpace: .sRGB)!
+        .draw(in: NSBezierPath(roundedRect: pinRect, xRadius: 7, yRadius: 7), angle: 0)
+    ctx.restoreGState()
+
+    // Metal spring ring
+    let springRect = NSRect(x: -pinW / 2 + 3, y: -8, width: pinW - 6, height: 16)
+    color(130, 135, 150).setFill()
+    NSBezierPath(roundedRect: springRect, xRadius: 3, yRadius: 3).fill()
 }
-ctx.restoreGState()
 
-// Top-lit rim on the icon body.
-shape.lineWidth = 4
-ctx.saveGState()
-shape.addClip()
-color(255, 255, 255, 0.35).setStroke()
-shape.stroke()
-ctx.restoreGState()
+// Left Card: Main Todo Checklist Note (Yellow Pastel)
+hangMemo(centerX: 360, width: 330, height: 380, angle: -4.5,
+         bgColors: [color(255, 248, 200), color(255, 235, 160)], isTodo: true)
 
+// Right Card: Idea Note (Pink Pastel)
+hangMemo(centerX: 660, width: 300, height: 360, angle: 5.5,
+         bgColors: [color(255, 230, 240), color(255, 205, 225)], isTodo: false)
+
+ctx.restoreGState()
 NSGraphicsContext.restoreGraphicsState()
-try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))
+
+let tiff = rep.tiffRepresentation!
+let png = NSBitmapImageRep(data: tiff)!.representation(using: .png, properties: [:])!
+try! png.write(to: URL(fileURLWithPath: out))
+print("Wrote SunMemo icon to \(out)")

@@ -102,7 +102,15 @@ final class ScreenshotWatcher {
 
     private func isCandidate(_ url: URL) -> Bool {
         guard Self.imageExtensions.contains(url.pathExtension.lowercased()) else { return false }
-        return onlyTaggedScreenshots ? isScreenCapture(url) : true
+        if onlyTaggedScreenshots {
+            if isScreenCapture(url) { return true }
+            let name = url.lastPathComponent.lowercased()
+            if name.contains("quickshot") || name.contains("screenshot") || name.contains("screen shot") || name.contains("截屏") || name.contains("capture") {
+                return true
+            }
+            return false
+        }
+        return true
     }
 
     private func isScreenCapture(_ url: URL) -> Bool {

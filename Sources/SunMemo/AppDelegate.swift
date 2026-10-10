@@ -15,7 +15,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// landing on the Desktop, and they still hang on the line.
     private var safetyWatcher: ScreenshotWatcher?
     private var signalSources: [DispatchSourceSignal] = []
-    private var hotKey: HotKey?
     private var cancellables = Set<AnyCancellable>()
     private var mouseTimer: Timer?
 
@@ -55,8 +54,129 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         restoreSettingsOnTermination()
         startWatcher()
 
-        hotKey = HotKey(keyCode: kVK_ANSI_T, modifiers: controlKey | optionKey) { [weak self] in
-            self?.toggle()
+        ClipboardWatcher.shared.setup(line: line) { [weak self] url in
+            self?.hangCapture(url)
+        }
+
+        HotKeyManager.shared.start(
+            onToggle: { [weak self] in self?.toggle() },
+            onNewMemo: { [weak self] in
+                guard let self else { return }
+                QuickMemoWindowController.shared.show(line: self.line)
+            },
+            onHangClipboard: {
+                let _ = ClipboardWatcher.shared.hangCurrentClipboard()
+            }
+        )
+
+        for name in [Notification.Name.sunMemoRevealLine, Notification.Name.tendederoRevealLine] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.keepOpen = true
+                    self?.wanted = true
+                    self?.panel.placeOnScreen()
+                    self?.updateCapacity()
+                    self?.refresh()
+                    self?.reveal(pinned: true)
+                }
+            }
+        }
+
+        for notifName in ["com.sunmemo.showQuickMemo", "com.tendedero.showQuickMemo"] {
+            DistributedNotificationCenter.default().addObserver(
+                forName: NSNotification.Name(notifName),
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    QuickMemoWindowController.shared.show(line: self.line)
+                }
+            }
+        }
+
+        for notifName in ["com.sunmemo.toggleLine", "com.tendedero.toggleLine"] {
+            DistributedNotificationCenter.default().addObserver(
+                forName: NSNotification.Name(notifName),
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.toggle()
+                }
+            }
+        }
+
+        for notifName in ["com.sunmemo.showWelcome", "com.tendedero.showWelcome"] {
+            DistributedNotificationCenter.default().addObserver(
+                forName: NSNotification.Name(notifName),
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.offerInbox()
+                }
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.tendedero.createTestMemo"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notif in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let text = notif.userInfo?["text"] as? String ?? "# 🚀 项目待办冲刺\n- [ ] 优化 Tendedero 待办清单\n- [ ] 备份数据库与 **配置文件**\n- [x] 修复窗口排版对齐\n> 💡 支持 Markdown 语法与清单"
+                let color = notif.userInfo?["color"] as? String ?? "green"
+                self.line.addMemo(text: text, color: color)
+                self.reveal(pinned: true)
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.tendedero.updateFirstMemo"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notif in
+            MainActor.assumeIsolated {
+                guard let self, let target = self.line.items.first(where: { $0.isMemo && $0.memoText.contains("- [") }) else { return }
+                let newColor = notif.userInfo?["color"] as? String ?? "pink"
+                let newText = notif.userInfo?["text"] as? String ?? "# 🌸 更新后的备忘录\n- [x] 优化待办清单交互\n- [ ] 备份数据库与 **核心配置**\n- [x] 修复排版对齐与白条"
+                self.line.updateMemo(id: target.id, text: newText, color: newColor)
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.tendedero.toggleFirstTodo"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let target = self.line.items.first(where: { $0.isMemo && $0.memoText.contains("- [") }) else { return }
+                self.line.toggleMemoTodoLine(id: target.id, lineIndex: 1)
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.tendedero.toggleCardDone"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let target = self.line.items.first(where: { $0.isMemo }) else { return }
+                self.line.toggleMemoDone(target.id)
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.tendedero.discardFirstMemo"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let target = self.line.items.first(where: { $0.isMemo }) else { return }
+                self.line.discard(target.id)
+            }
         }
 
         setUpStatusItem()
@@ -146,15 +266,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Asked once. Changing system settings is the user's call, never ours.
     private func offerInbox() {
         Inbox.wasOffered = true
-        let alert = NSAlert()
-        alert.messageText = L("Let Tendedero handle your screenshots?")
-        alert.informativeText = L(
-            "Screenshots will hang on the line the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Tendedero quits.")
-        alert.addButton(withTitle: L("Turn on"))
-        alert.addButton(withTitle: L("Not now"))
-        if let icon = NSImage(named: "Tendedero") ?? NSApp.applicationIconImage { alert.icon = icon }
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn { setInbox(true) }
+        WelcomeWindowController.shared.show { [weak self] enableInbox in
+            if enableInbox {
+                self?.setInbox(true)
+            }
+        }
     }
 
     /// Quitting from the menu or logging out runs applicationWillTerminate.
@@ -241,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func cardFrame(for id: UUID) -> CGRect? {
         guard let index = line.items.firstIndex(where: { $0.id == id }) else { return nil }
         let width = panel.frame.width
-        let x = Layout.x(index: index, count: line.items.count, width: width)
+        let x = Layout.x(index: index, count: line.items.count + 1, width: width)
         let viewTop = Layout.ropeY(x: x, width: width) - Layout.pinAbove
         let cardTop = viewTop + PeggedView.cardOffsetBelowTop
         let size = PeggedView.cardSize(for: line.items[index].thumb.size)
@@ -317,6 +433,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             refresh()
             reveal(pinned: true)
         }
+    }
+
+    @objc private func quickMemo() {
+        QuickMemoWindowController.shared.show(line: line)
     }
 
     private func startMouseTracking() {
@@ -439,15 +559,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateCapacity() {
-        let usable = panel.frame.width - 200
-        line.maxItems = max(3, min(12, Int(usable / Layout.spacing)))
+        line.maxItems = 35
     }
 
     // MARK: Menu bar
 
     private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let image = NSImage(systemSymbolName: "tshirt", accessibilityDescription: "Tendedero")
+        let image = NSImage(systemSymbolName: "sun.max.fill", accessibilityDescription: "SunMemo")
+            ?? NSImage(systemSymbolName: "sun.max", accessibilityDescription: "SunMemo")
         image?.isTemplate = true
         statusItem.button?.image = image
         let menu = NSMenu()
@@ -461,9 +581,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let toggleItem = ClosureMenuItem(isRevealed ? L("Hide line") : L("Show line")) { [weak self] in
             self?.toggle()
         }
-        toggleItem.keyEquivalent = "t"
-        toggleItem.keyEquivalentModifierMask = [.control, .option]
         menu.addItem(toggleItem)
+
+        let memoItem = ClosureMenuItem("弹窗新建便签") { [weak self] in
+            guard let self else { return }
+            QuickMemoWindowController.shared.show(line: self.line)
+        }
+        menu.addItem(memoItem)
+
+        let pasteItem = ClosureMenuItem("挂上剪贴板内容") {
+            let _ = ClipboardWatcher.shared.hangCurrentClipboard()
+        }
+        menu.addItem(pasteItem)
+
+        menu.addItem(ClosureMenuItem("偏好设置与快捷键...") {
+            SettingsWindowController.shared.show()
+        })
+
+        menu.addItem(ClosureMenuItem("💡 欢迎与使用引导...") { [weak self] in
+            WelcomeWindowController.shared.show { [weak self] enableInbox in
+                if enableInbox {
+                    self?.setInbox(true)
+                }
+            }
+        })
+
+        menu.addItem(ClosureMenuItem("📄 打开本地 Markdown 备忘文件 (SunMemo.md)") {
+            MemoSyncManager.shared.openInEditor()
+        })
 
         let clearItem = ClosureMenuItem(L("Take everything down")) { [weak self] in
             self?.line.clear()
@@ -499,7 +644,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(login)
 
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(L("Quit Tendedero"), key: "q") {
+        menu.addItem(ClosureMenuItem(L("Quit SunMemo"), key: "q") {
             NSApp.terminate(nil)
         })
     }
@@ -514,7 +659,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } catch {
             let alert = NSAlert()
             alert.messageText = L("Could not change the login setting")
-            alert.informativeText = L("Move Tendedero to the Applications folder and try again.")
+            alert.informativeText = L("Move SunMemo to the Applications folder and try again.")
             NSApp.activate(ignoringOtherApps: true)
             alert.runModal()
         }

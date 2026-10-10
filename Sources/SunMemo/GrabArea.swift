@@ -43,20 +43,30 @@ struct GrabArea: NSViewRepresentable {
         view.onPressChange = { pressed in line.pressedID = pressed ? id : nil }
         view.menuProvider = {
             let menu = NSMenu()
-            menu.addItem(ClosureMenuItem(L("Copy")) { line.copy(id) })
-            menu.addItem(ClosureMenuItem(L("Open")) { line.open(id) })
-            menu.addItem(ClosureMenuItem(L("Markup")) { line.markup(id) })
-            menu.addItem(ClosureMenuItem(L("Show in Finder")) { line.reveal(id) })
-            let inInbox = line.isInInbox(id)
-            if inInbox {
-                menu.addItem(ClosureMenuItem(L("Save to Desktop")) { line.saveToDesktop(id) })
-            }
-            menu.addItem(.separator())
-            if inInbox {
-                menu.addItem(ClosureMenuItem(L("Discard")) { line.discard(id) })
+            if item.isMemo {
+                menu.addItem(ClosureMenuItem(L("Copy")) { line.copy(id) })
+                menu.addItem(ClosureMenuItem(item.isDone ? "标记为未完成" : "标记为已完成") {
+                    line.toggleMemoDone(id)
+                })
+                menu.addItem(ClosureMenuItem("编辑备忘") { line.open(id) })
+                menu.addItem(.separator())
+                menu.addItem(ClosureMenuItem("撕下便签") { line.discard(id) })
             } else {
-                menu.addItem(ClosureMenuItem(L("Take down")) { line.discard(id) })
-                menu.addItem(ClosureMenuItem(L("Move to Trash")) { line.trash(id) })
+                menu.addItem(ClosureMenuItem(L("Copy")) { line.copy(id) })
+                menu.addItem(ClosureMenuItem(L("Open")) { line.open(id) })
+                menu.addItem(ClosureMenuItem(L("Markup")) { line.markup(id) })
+                menu.addItem(ClosureMenuItem(L("Show in Finder")) { line.reveal(id) })
+                let inInbox = line.isInInbox(id)
+                if inInbox {
+                    menu.addItem(ClosureMenuItem(L("Save to Desktop")) { line.saveToDesktop(id) })
+                }
+                menu.addItem(.separator())
+                if inInbox {
+                    menu.addItem(ClosureMenuItem(L("Discard")) { line.discard(id) })
+                } else {
+                    menu.addItem(ClosureMenuItem(L("Take down")) { line.discard(id) })
+                    menu.addItem(ClosureMenuItem(L("Move to Trash")) { line.trash(id) })
+                }
             }
             return menu
         }

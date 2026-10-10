@@ -24,7 +24,12 @@ enum Inbox {
 
     static let folder: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Tendedero/Screenshots", isDirectory: true)
+        let newURL = base.appendingPathComponent("SunMemo/Screenshots", isDirectory: true)
+        let oldURL = base.appendingPathComponent("Tendedero/Screenshots", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: newURL.path), FileManager.default.fileExists(atPath: oldURL.path) {
+            try? FileManager.default.copyItem(at: oldURL, to: newURL)
+        }
+        return newURL
     }()
 
     /// The user's choice, kept across launches.

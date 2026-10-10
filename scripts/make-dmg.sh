@@ -5,14 +5,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 scripts/build-app.sh release
-VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/Tendedero.app/Contents/Info.plist)"
-DMG="build/Tendedero-$VERSION.dmg"
-NAME="Tendedero"
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/SunMemo.app/Contents/Info.plist)"
+DMG="build/SunMemo-$VERSION.dmg"
+NAME="SunMemo"
 
 WORK="$(mktemp -d)"
 STAGE="$WORK/stage"
 mkdir -p "$STAGE/.background"
-cp -R build/Tendedero.app "$STAGE/"
+cp -R build/SunMemo.app "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 swift scripts/make-dmg-background.swift "$WORK/bg1x.png" 1
 swift scripts/make-dmg-background.swift "$WORK/bg2x.png" 2
@@ -45,7 +45,7 @@ tell application "Finder"
     set icon size of opts to 112
     set text size of opts to 13
     set background picture of opts to file ".background:background.tiff"
-    set position of item "Tendedero.app" of container window to {160, 178}
+    set position of item "SunMemo.app" of container window to {160, 178}
     set position of item "Applications" of container window to {440, 178}
     -- Size last: Finder can resize the window while it applies the options.
     set the bounds of container window to {200, 120, 800, 528}

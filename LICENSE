@@ -1,6 +1,7 @@
 MIT License
 
-Copyright (c) 2026 Alejandro Buján
+Copyright (c) 2026 Kaiming Zhang (SunMemo Contributors)
+Copyright (c) 2026 Alejandro Buján (Original Tendedero codebase)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,13 +23,8 @@ SOFTWARE.
 
 ---
 
-Name and icon
+Name and icon notice:
 
-The MIT License above covers the source code. It does not grant any rights
-to the Tendedero name or the Tendedero icon, including the icon artwork drawn
-by scripts/make-icon.swift and the images in the docs folder.
-
-You may build and use the app as published, and you may refer to Tendedero
-to say where your work comes from. Modified or redistributed versions must
-use a different name and a different icon, and must not suggest that they
-are Tendedero or are endorsed by its author.
+SunMemo is an independent fork and substantial enhancement of Tendedero.
+In compliance with the upstream license terms, SunMemo uses a distinct name,
+distinct artwork and brand identity, and a redesigned icon (drawn by scripts/make-icon.swift).

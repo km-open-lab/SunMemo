@@ -1,10 +1,6 @@
 /* Spanish. */
 
 /* AppDelegate */
-"Let Tendedero handle your screenshots?" = "¿Quieres que Tendedero se encargue de tus capturas?";
-"Screenshots will hang on the line the instant you take them, without the floating thumbnail, and will not pile up on your Desktop. Drag one to a folder to keep it, or discard it with the cross. You can turn this off from the menu bar, and your settings come back when Tendedero quits." = "Las capturas se colgarán al instante, sin la miniatura flotante, y no se acumularán en el Escritorio. Arrastra una a una carpeta para guardarla, o descártala con la cruz. Puedes desactivarlo desde la barra de menús, y tus ajustes vuelven a ser los de antes al salir de Tendedero.";
-"Turn on" = "Activar";
-"Not now" = "Ahora no";
 "Hide line" = "Ocultar tendedero";
 "Show line" = "Mostrar tendedero";
 "Take everything down" = "Descolgar todo";
@@ -13,9 +9,9 @@
 "Open screenshots folder" = "Abrir carpeta de capturas";
 "Sounds" = "Sonidos";
 "Open at login" = "Abrir al iniciar sesión";
-"Quit Tendedero" = "Salir de Tendedero";
+"Quit SunMemo" = "Salir de SunMemo";
 "Could not change the login setting" = "No se pudo cambiar el inicio de sesión";
-"Move Tendedero to the Applications folder and try again." = "Mueve Tendedero a la carpeta Aplicaciones y vuelve a intentarlo.";
+"Move SunMemo to the Applications folder and try again." = "Mueve SunMemo a la carpeta Aplicaciones y vuelve a intentarlo.";
 
 /* GrabArea */
 "Copy" = "Copiar";
