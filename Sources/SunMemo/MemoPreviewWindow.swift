@@ -113,14 +113,15 @@ struct HeroPreviewHostView: View {
         line.items.first(where: { $0.id == itemID && !$0.falling })
     }
 
-    // Memo card size: Widescreen landscape aspect ratio (~1.59:1), matching rope memo (220x140)!
-    private let memoCardWidth: CGFloat = 510
-    private let memoCardHeight: CGFloat = 320
+    private var memoRatio: MemoAspectRatio {
+        guard let item else { return .wide }
+        return MemoAspectRatio(rawValue: item.aspectRatio) ?? .wide
+    }
 
     private var cardSize: CGSize {
-        guard let item else { return CGSize(width: memoCardWidth, height: memoCardHeight) }
+        guard let item else { return memoRatio.previewSize }
         if item.isMemo {
-            return CGSize(width: memoCardWidth, height: memoCardHeight)
+            return memoRatio.previewSize
         } else {
             // Photo / screenshot size: preserve aspect ratio, bounded inside 620x420
             let imgSize = item.thumb.size
@@ -144,7 +145,7 @@ struct HeroPreviewHostView: View {
     }
 
     private var cardClipPoint: CGPoint {
-        CGPoint(x: 0, y: -cardSize.height / 2 - 12)
+        CGPoint(x: 0, y: -cardSize.height / 2 - 20)
     }
 
     private var deltaOffset: CGSize {
@@ -175,18 +176,17 @@ struct HeroPreviewHostView: View {
                 }
 
             if let item {
-                // MARK: Elastic Tether Cord (从晾衣绳牵引到卡片的松弛伸缩拉绳)
+                // MARK: Elastic Tether Cord (精致、轻盈、松弛的悬挂牵引拉绳)
                 elasticCordView
 
                 // MARK: The Main Card
-                VStack(spacing: -14) {
-                    // Top Clothespin hanging the card
-                    Clothespin()
-                        .frame(width: 26, height: 52)
+                VStack(spacing: -12) {
+                    // Refined suspension clip with metallic eyelet ring
+                    SuspensionPeg()
                         .zIndex(2)
 
                     if item.isMemo {
-                        widescreenMemoCard(item)
+                        previewMemoCard(item)
                             .zIndex(1)
                     } else {
                         photoPreviewCard(item)
@@ -208,41 +208,41 @@ struct HeroPreviewHostView: View {
         }
     }
 
-    // MARK: - Elastic Tension Cord View
+    // MARK: - Elastic Tension Cord View (精致悬空牵引线：细腻材质 + 自然下垂悬链曲线)
     private var elasticCordView: some View {
         ZStack {
-            // Top Mini Clothespin clipped on the clothesline
+            // Top Mini Clothespin clipped onto the clothesline rope
             Clothespin()
-                .frame(width: 15, height: 28)
+                .frame(width: 13, height: 24)
                 .position(x: screen.frame.width / 2 + ropePegPoint.x,
                           y: screen.frame.height / 2 + ropePegPoint.y)
-                .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
+                .shadow(color: .black.opacity(0.18), radius: 2.5, y: 1)
 
-            // Elastic Cord drawing with gentle organic curve
+            // Delicate organic suspension cord
             Path { path in
                 let start = CGPoint(x: screen.frame.width / 2 + ropePegPoint.x,
-                                    y: screen.frame.height / 2 + ropePegPoint.y + 12)
+                                    y: screen.frame.height / 2 + ropePegPoint.y + 11)
                 let end = CGPoint(x: screen.frame.width / 2 + (isExpanded ? cardClipPoint.x : (deltaOffset.width + cardClipPoint.x * initialScale)),
                                   y: screen.frame.height / 2 + (isExpanded ? cardClipPoint.y : (deltaOffset.height + cardClipPoint.y * initialScale)))
                 path.move(to: start)
                 let dx = end.x - start.x
-                let midY = (start.y + end.y) / 2
-                let control = CGPoint(x: start.x + dx * 0.45 + (dx >= 0 ? -10 : 10),
-                                      y: midY - 14)
-                path.addQuadCurve(to: end, control: control)
+                let dy = end.y - start.y
+                let cp1 = CGPoint(x: start.x + dx * 0.22 - 6, y: start.y + dy * 0.36)
+                let cp2 = CGPoint(x: start.x + dx * 0.78 - 3, y: start.y + dy * 0.78)
+                path.addCurve(to: end, control1: cp1, control2: cp2)
             }
             .stroke(
                 LinearGradient(
                     colors: [
-                        Color(red: 0.38, green: 0.35, blue: 0.42).opacity(0.72),
-                        Color(red: 0.50, green: 0.46, blue: 0.55).opacity(0.55)
+                        Color(red: 0.48, green: 0.44, blue: 0.40).opacity(0.80),
+                        Color(red: 0.58, green: 0.54, blue: 0.50).opacity(0.65)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 ),
-                style: StrokeStyle(lineWidth: 1.8, lineCap: .round)
+                style: StrokeStyle(lineWidth: 1.3, lineCap: .round)
             )
-            .shadow(color: .black.opacity(0.22), radius: 3, y: 1)
+            .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
         }
         .opacity(isExpanded ? 1.0 : 0.0)
         .animation(.spring(response: 0.38, dampingFraction: 0.74), value: isExpanded)
@@ -257,8 +257,8 @@ struct HeroPreviewHostView: View {
         }
     }
 
-    // MARK: - Widescreen Memo Card (宽屏比例横版便签)
-    private func widescreenMemoCard(_ item: Pegged) -> some View {
+    // MARK: - Memo Preview Card (多比例智能适配便签大卡片)
+    private func previewMemoCard(_ item: Pegged) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header bar
             HStack(alignment: .center, spacing: 8) {
@@ -277,6 +277,34 @@ struct HeroPreviewHostView: View {
                 }
 
                 Spacer()
+
+                // Real-time aspect ratio selector pills
+                HStack(spacing: 2) {
+                    ForEach(MemoAspectRatio.allCases, id: \.rawValue) { ratio in
+                        Button {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                                line.updateMemoAspectRatio(id: item.id, aspectRatio: ratio.rawValue)
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Text(ratio.symbol)
+                                    .font(.system(size: 9.5, weight: .bold))
+                                Text(ratio.title)
+                                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                memoRatio == ratio ? Color.black.opacity(0.12) : Color.white.opacity(0.4),
+                                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            )
+                            .foregroundStyle(memoRatio == ratio ? Color.primary : Color.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(2)
+                .background(Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
 
                 Text(timeString(from: item.createdAt))
                     .font(.system(size: 11.5, weight: .medium))
@@ -301,13 +329,13 @@ struct HeroPreviewHostView: View {
                 .padding(.horizontal, 16)
                 .opacity(0.35)
 
-            // Markdown Body with interactive checkboxes (Widescreen layout)
+            // Markdown Body with interactive checkboxes (Adaptive height per ratio)
             MarkdownPreviewScrollView(text: item.memoText) { lineIndex in
                 line.toggleMemoTodoLine(id: item.id, lineIndex: lineIndex)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .frame(height: 185)
+            .frame(height: memoRatio.previewBodyHeight)
 
             Divider()
                 .padding(.horizontal, 16)
@@ -384,7 +412,7 @@ struct HeroPreviewHostView: View {
             .padding(.top, 9)
             .padding(.bottom, 12)
         }
-        .frame(width: memoCardWidth, height: memoCardHeight)
+        .frame(width: memoRatio.previewSize.width, height: memoRatio.previewSize.height)
         .background(memoBackground(for: item.memoColor))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
@@ -560,3 +588,29 @@ struct HeroPreviewHostView: View {
         return LinearGradient(colors: [c1, c2], startPoint: .top, endPoint: .bottom)
     }
 }
+
+/// Refined clothespin / clamp holding the suspended card, with a tiny metallic eyelet ring at the top
+struct SuspensionPeg: View {
+    var body: some View {
+        VStack(spacing: -3) {
+            // Metallic suspension ring / eyelet where the cord attaches
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.85), Color.gray.opacity(0.65)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.2
+                )
+                .frame(width: 7, height: 7)
+                .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+
+            // Petite wooden clothespin
+            Clothespin()
+                .frame(width: 18, height: 36)
+                .shadow(color: .black.opacity(0.22), radius: 3, y: 1.5)
+        }
+    }
+}
+

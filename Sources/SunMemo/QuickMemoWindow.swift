@@ -18,30 +18,34 @@ final class QuickMemoWindowController {
 
         let initialText: String
         let initialColor: String
+        let initialAspectRatio: String
         if let editingMemoID,
            let memo = line.items.first(where: { $0.id == editingMemoID && $0.isMemo }) {
             initialText = memo.memoText
             initialColor = memo.memoColor
+            initialAspectRatio = memo.aspectRatio
         } else {
             initialText = ""
             initialColor = "yellow"
+            initialAspectRatio = "wide"
         }
 
         let view = QuickMemoView(
             editingID: editingMemoID,
             initialText: initialText,
             initialColor: initialColor,
-            onSave: { [weak self] text, color in
+            initialAspectRatio: initialAspectRatio,
+            onSave: { [weak self] text, color, aspectRatio in
                 guard let self, let line = self.currentLine else { return }
                 let sourceRect = self.window?.frame
                 self.close()
                 if let editingMemoID {
-                    line.updateMemo(id: editingMemoID, text: text, color: color)
+                    line.updateMemo(id: editingMemoID, text: text, color: color, aspectRatio: aspectRatio)
                     NotificationCenter.default.post(name: .tendederoRevealLine, object: nil)
                 } else if let appDelegate = AppDelegate.shared {
-                    appDelegate.hangMemoFlight(text: text, color: color, from: sourceRect)
+                    appDelegate.hangMemoFlight(text: text, color: color, aspectRatio: aspectRatio, from: sourceRect)
                 } else {
-                    line.addMemo(text: text, color: color)
+                    line.addMemo(text: text, color: color, aspectRatio: aspectRatio)
                     NotificationCenter.default.post(name: .tendederoRevealLine, object: nil)
                 }
             },
@@ -50,13 +54,14 @@ final class QuickMemoWindowController {
             }
         )
 
+        let initialSize = (MemoAspectRatio(rawValue: initialAspectRatio) ?? .wide).editorWindowSize
         let hosting = NSHostingView(rootView: view)
         let win = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 500, height: 350),
+            contentRect: NSRect(origin: .zero, size: initialSize),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false
         )
-        win.minSize = NSSize(width: 380, height: 260)
+        win.minSize = NSSize(width: 360, height: 260)
         win.maxSize = NSSize(width: 1200, height: 1000)
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
@@ -74,6 +79,15 @@ final class QuickMemoWindowController {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func resizeWindow(to size: CGSize) {
+        guard let window else { return }
+        var frame = window.frame
+        let oldCenter = CGPoint(x: frame.midX, y: frame.midY)
+        frame.size = size
+        frame.origin = CGPoint(x: oldCenter.x - size.width / 2, y: oldCenter.y - size.height / 2)
+        window.animator().setFrame(frame, display: true)
+    }
+
     func close() {
         window?.close()
         window = nil
@@ -89,16 +103,18 @@ struct QuickMemoView: View {
     let editingID: UUID?
     @State private var text: String
     @State private var color: String
+    @State private var aspectRatio: String
     @State private var isPreviewMode: Bool = false
-    let onSave: (String, String) -> Void
+    let onSave: (String, String, String) -> Void
     let onCancel: () -> Void
 
-    init(editingID: UUID?, initialText: String, initialColor: String,
-         onSave: @escaping (String, String) -> Void,
+    init(editingID: UUID?, initialText: String, initialColor: String, initialAspectRatio: String = "wide",
+         onSave: @escaping (String, String, String) -> Void,
          onCancel: @escaping () -> Void) {
         self.editingID = editingID
         _text = State(initialValue: initialText)
         _color = State(initialValue: initialColor)
+        _aspectRatio = State(initialValue: initialAspectRatio)
         self.onSave = onSave
         self.onCancel = onCancel
     }
@@ -161,8 +177,9 @@ struct QuickMemoView: View {
             .padding(.top, 14)
             .padding(.bottom, 8)
 
-            // MARK: Markdown Quick Toolbar
-            HStack(spacing: 8) {
+            // MARK: Markdown Quick Toolbar & Aspect Ratio Selector
+            HStack(spacing: 7) {
+                // Formatting buttons
                 Button {
                     insertTextPrefix("- [ ] ")
                 } label: {
@@ -217,13 +234,42 @@ struct QuickMemoView: View {
 
                 Spacer()
 
+                // Aspect Ratio Selector Pills [▭ 宽版] [□ 方版] [▯ 竖版]
+                HStack(spacing: 2) {
+                    ForEach(MemoAspectRatio.allCases, id: \.rawValue) { ratio in
+                        Button {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                                aspectRatio = ratio.rawValue
+                                QuickMemoWindowController.shared.resizeWindow(to: ratio.editorWindowSize)
+                            }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Text(ratio.symbol)
+                                    .font(.system(size: 9.5, weight: .bold))
+                                Text(ratio.title)
+                                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                aspectRatio == ratio.rawValue ? Color.black.opacity(0.12) : Color.white.opacity(0.4),
+                                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            )
+                            .foregroundStyle(aspectRatio == ratio.rawValue ? Color.primary : Color.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(2)
+                .background(Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
                 // Edit vs Preview Segmented Toggle
                 Picker("", selection: $isPreviewMode) {
                     Text("编辑").tag(false)
                     Text("MD 预览").tag(true)
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 115)
+                .frame(width: 105)
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 8)
@@ -318,7 +364,7 @@ struct QuickMemoView: View {
     private func commit() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        onSave(trimmed, color)
+        onSave(trimmed, color, aspectRatio)
     }
 
     private func insertTextPrefix(_ prefix: String) {

@@ -1,12 +1,16 @@
 import SwiftUI
 
 enum Layout {
-    static let panelHeight: CGFloat = 245
+    static let panelHeight: CGFloat = 275
     static let ropeTop: CGFloat = 10
     static let cardWidth: CGFloat = 150
     static let memoWidth: CGFloat = 220
     static let memoHeight: CGFloat = 140
     static let pinAbove: CGFloat = 9.5
+
+    static func memoWidth(for aspectRatio: String) -> CGFloat {
+        (MemoAspectRatio(rawValue: aspectRatio) ?? .wide).ropeSize.width
+    }
 
     /// The rope hangs as a parabola from edge to edge of the screen.
     static func sag(width: CGFloat) -> CGFloat { min(32, width * 0.018) }
@@ -48,28 +52,31 @@ struct LineView: View {
             ZStack(alignment: .topLeading) {
                 Rope(width: width)
 
-                // Hanging cards (with macOS Dock-like magnification wave on hover)
+                // Hanging cards (Playing card parting / peeking effect on hover)
                 ForEach(Array(line.items.enumerated()), id: \.element.id) { index, item in
                     let x = Layout.x(index: index, count: totalCards, width: width)
                     let ropeY = Layout.ropeY(x: x, width: width)
-                    let itemWidth = item.isMemo ? Layout.memoWidth : Layout.cardWidth
-                    let mag = dockMagnification(index: index, hoveredID: line.hoveredID)
+                    let itemWidth = item.isMemo ? Layout.memoWidth(for: item.aspectRatio) : Layout.cardWidth
+                    let peek = peekingTransform(index: index, hoveredID: line.hoveredID)
                     PeggedView(item: item, line: line)
-                        .scaleEffect(mag.scale, anchor: .top)
-                        .offset(y: mag.yOffset)
+                        .offset(x: peek.xOffset, y: peek.yOffset)
+                        .rotationEffect(.degrees(peek.tilt), anchor: .top)
                         .frame(width: itemWidth, height: Layout.panelHeight - ropeY, alignment: .top)
                         .position(x: x, y: ropeY - Layout.pinAbove + (Layout.panelHeight - ropeY) / 2)
-                        .zIndex(mag.zIndex)
-                        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: line.hoveredID)
+                        .zIndex(peek.zIndex)
+                        .animation(.spring(response: 0.28, dampingFraction: 0.78), value: line.hoveredID)
                 }
 
                 // Add Memo Card at the end of the line
                 let addX = Layout.x(index: line.items.count, count: totalCards, width: width)
                 let addRopeY = Layout.ropeY(x: addX, width: width)
+                let addOffset = addCardPeekingOffset(hoveredID: line.hoveredID)
                 AddMemoCardView(line: line)
+                    .offset(x: addOffset)
                     .frame(width: Layout.memoWidth, height: Layout.panelHeight - addRopeY, alignment: .top)
                     .position(x: addX, y: addRopeY - Layout.pinAbove + (Layout.panelHeight - addRopeY) / 2)
                     .zIndex(Double(totalCards + 1))
+                    .animation(.spring(response: 0.28, dampingFraction: 0.78), value: line.hoveredID)
 
                 // Top right control buttons
                 HStack(spacing: 8) {
@@ -96,21 +103,70 @@ struct LineView: View {
         }
     }
 
-    private func dockMagnification(index: Int, hoveredID: UUID?) -> (scale: CGFloat, yOffset: CGFloat, zIndex: Double) {
+    /// Scheme B: Hand-parting playing cards (扇面推开 / Peeking 让位)
+    /// When hovering over a card:
+    /// - The hovered card steps forward with no scale swelling.
+    /// - Adjacent cards part smoothly to the left/right like playing cards held in hand.
+    private func peekingTransform(index: Int, hoveredID: UUID?) -> (xOffset: CGFloat, yOffset: CGFloat, tilt: Double, zIndex: Double) {
         guard let hoveredID,
               let hIndex = line.items.firstIndex(where: { $0.id == hoveredID }) else {
-            return (1.0, 0.0, Double(index + 1))
+            return (0.0, 0.0, 0.0, Double(index + 1))
         }
         let dist = abs(index - hIndex)
         if dist == 0 {
-            return (1.18, 14.0, 1000.0)
-        } else if dist == 1 {
-            return (1.09, 7.0, 900.0 + Double(index))
-        } else if dist == 2 {
-            return (1.04, 3.0, 800.0 + Double(index))
+            // Hovered card steps forward into clear view
+            return (0.0, 8.0, 0.0, 1000.0)
+        } else if index < hIndex {
+            // Left cards part to the left
+            let xOff: CGFloat
+            let tilt: Double
+            if dist == 1 {
+                xOff = -28.0
+                tilt = -2.2
+            } else if dist == 2 {
+                xOff = -14.0
+                tilt = -1.2
+            } else if dist == 3 {
+                xOff = -5.0
+                tilt = -0.5
+            } else {
+                xOff = 0.0
+                tilt = 0.0
+            }
+            return (xOff, 0.0, tilt, Double(900 - dist))
         } else {
-            return (1.0, 0.0, Double(index + 1))
+            // Right cards part to the right
+            let xOff: CGFloat
+            let tilt: Double
+            if dist == 1 {
+                xOff = 28.0
+                tilt = 2.2
+            } else if dist == 2 {
+                xOff = 14.0
+                tilt = 1.2
+            } else if dist == 3 {
+                xOff = 5.0
+                tilt = 0.5
+            } else {
+                xOff = 0.0
+                tilt = 0.0
+            }
+            return (xOff, 0.0, tilt, Double(900 - dist))
         }
+    }
+
+    private func addCardPeekingOffset(hoveredID: UUID?) -> CGFloat {
+        guard let hoveredID,
+              let hIndex = line.items.firstIndex(where: { $0.id == hoveredID }) else {
+            return 0
+        }
+        let dist = line.items.count - hIndex
+        if dist == 1 {
+            return 26.0
+        } else if dist == 2 {
+            return 12.0
+        }
+        return 0
     }
 }
 

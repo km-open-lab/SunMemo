@@ -11,6 +11,7 @@ struct MemoData: Codable {
     var color: String
     var isDone: Bool
     var createdAt: Date
+    var aspectRatio: String?
 }
 
 /// One screenshot or memo hanging on the line.
@@ -30,13 +31,15 @@ struct Pegged: Identifiable, Equatable {
     var memoColor: String = "yellow"
     var isDone: Bool = false
     var createdAt: Date = Date()
+    var aspectRatio: String = "wide" // "wide" (16:10), "square" (1:1), "tall" (3:4)
 
     init(id: UUID = UUID(), url: URL, thumb: NSImage,
          tilt: Double = Double.random(in: -2.5...2.5),
          flying: Bool = false,
          isMemo: Bool = false, memoText: String = "",
          memoColor: String = "yellow", isDone: Bool = false,
-         createdAt: Date = Date()) {
+         createdAt: Date = Date(),
+         aspectRatio: String = "wide") {
         self.id = id
         self.url = url
         self.thumb = thumb
@@ -47,12 +50,14 @@ struct Pegged: Identifiable, Equatable {
         self.memoColor = memoColor
         self.isDone = isDone
         self.createdAt = createdAt
+        self.aspectRatio = aspectRatio
     }
 
     static func == (a: Pegged, b: Pegged) -> Bool {
         a.id == b.id && a.falling == b.falling && a.flying == b.flying
             && a.isMemo == b.isMemo && a.memoText == b.memoText
             && a.isDone == b.isDone && a.memoColor == b.memoColor
+            && a.aspectRatio == b.aspectRatio
     }
 }
 
@@ -128,7 +133,8 @@ final class Line: ObservableObject {
             let thumb = makeMemoThumbnail(text: memo.text, color: memo.color, isDone: memo.isDone)
             item = Pegged(id: memo.id, url: url, thumb: thumb, isMemo: true,
                           memoText: memo.text, memoColor: memo.color,
-                          isDone: memo.isDone, createdAt: memo.createdAt)
+                          isDone: memo.isDone, createdAt: memo.createdAt,
+                          aspectRatio: memo.aspectRatio ?? "wide")
         } else {
             guard let thumb = makeThumbnail(url) else { return nil }
             item = Pegged(url: url, thumb: thumb, flying: flying)
@@ -149,12 +155,12 @@ final class Line: ObservableObject {
     // MARK: Memo Operations
 
     @discardableResult
-    func addMemo(text: String, color: String = "yellow", flying: Bool = false) -> UUID? {
+    func addMemo(text: String, color: String = "yellow", aspectRatio: String = "wide", flying: Bool = false) -> UUID? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
         let id = UUID()
-        let memoData = MemoData(id: id, text: trimmed, color: color, isDone: false, createdAt: Date())
+        let memoData = MemoData(id: id, text: trimmed, color: color, isDone: false, createdAt: Date(), aspectRatio: aspectRatio)
         try? FileManager.default.createDirectory(at: Self.memosFolder, withIntermediateDirectories: true)
         let fileURL = Self.memosFolder.appendingPathComponent("memo_\(id.uuidString).json")
 
@@ -166,7 +172,8 @@ final class Line: ObservableObject {
         let thumb = makeMemoThumbnail(text: trimmed, color: color, isDone: false)
         var item = Pegged(id: id, url: fileURL, thumb: thumb, flying: flying, isMemo: true,
                           memoText: trimmed, memoColor: color,
-                          isDone: false, createdAt: memoData.createdAt)
+                          isDone: false, createdAt: memoData.createdAt,
+                          aspectRatio: aspectRatio)
         item.flying = flying
         items.append(item)
 
@@ -178,7 +185,7 @@ final class Line: ObservableObject {
         return id
     }
 
-    func updateMemo(id: UUID, text: String, color: String? = nil) {
+    func updateMemo(id: UUID, text: String, color: String? = nil, aspectRatio: String? = nil) {
         guard let i = items.firstIndex(where: { $0.id == id && $0.isMemo }) else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -186,10 +193,14 @@ final class Line: ObservableObject {
         if let color {
             items[i].memoColor = color
         }
+        if let aspectRatio {
+            items[i].aspectRatio = aspectRatio
+        }
         items[i].thumb = makeMemoThumbnail(text: trimmed, color: items[i].memoColor, isDone: items[i].isDone)
 
         let memoData = MemoData(id: id, text: trimmed, color: items[i].memoColor,
-                                isDone: items[i].isDone, createdAt: items[i].createdAt)
+                                isDone: items[i].isDone, createdAt: items[i].createdAt,
+                                aspectRatio: items[i].aspectRatio)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(memoData) {
@@ -199,13 +210,29 @@ final class Line: ObservableObject {
         MemoSyncManager.shared.sync(items: items)
     }
 
+    func updateMemoAspectRatio(id: UUID, aspectRatio: String) {
+        guard let i = items.firstIndex(where: { $0.id == id && $0.isMemo }) else { return }
+        items[i].aspectRatio = aspectRatio
+        let memoData = MemoData(id: id, text: items[i].memoText, color: items[i].memoColor,
+                                isDone: items[i].isDone, createdAt: items[i].createdAt,
+                                aspectRatio: aspectRatio)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        if let data = try? encoder.encode(memoData) {
+            try? data.write(to: items[i].url)
+        }
+        save()
+        play("Tink", volume: 0.25)
+    }
+
     func toggleMemoDone(_ id: UUID) {
         guard let i = items.firstIndex(where: { $0.id == id && $0.isMemo }) else { return }
         items[i].isDone.toggle()
         items[i].thumb = makeMemoThumbnail(text: items[i].memoText, color: items[i].memoColor, isDone: items[i].isDone)
 
         let memoData = MemoData(id: id, text: items[i].memoText, color: items[i].memoColor,
-                                isDone: items[i].isDone, createdAt: items[i].createdAt)
+                                isDone: items[i].isDone, createdAt: items[i].createdAt,
+                                aspectRatio: items[i].aspectRatio)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(memoData) {
@@ -224,7 +251,8 @@ final class Line: ObservableObject {
         items[i].thumb = makeMemoThumbnail(text: result.newText, color: items[i].memoColor, isDone: items[i].isDone)
 
         let memoData = MemoData(id: id, text: result.newText, color: items[i].memoColor,
-                                isDone: items[i].isDone, createdAt: items[i].createdAt)
+                                isDone: items[i].isDone, createdAt: items[i].createdAt,
+                                aspectRatio: items[i].aspectRatio)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(memoData) {

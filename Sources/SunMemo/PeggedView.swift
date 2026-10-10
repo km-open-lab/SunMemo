@@ -61,9 +61,14 @@ struct PeggedView: View {
         return CGSize(width: p.width + Frame.inset * 2, height: p.height + Frame.inset * 2)
     }
 
+    static func memoCardSize(for aspectRatio: String) -> CGSize {
+        (MemoAspectRatio(rawValue: aspectRatio) ?? .wide).ropeSize
+    }
+
     static let cardOffsetBelowTop: CGFloat = 26 - 12
 
     private var photoSize: CGSize { Self.photoSize(for: item.thumb.size) }
+    private var memoRatio: MemoAspectRatio { MemoAspectRatio(rawValue: item.aspectRatio) ?? .wide }
 
     // MARK: Screenshot Card
 
@@ -80,7 +85,7 @@ struct PeggedView: View {
             .padding(Frame.inset)
             .glassFrame(cornerRadius: Frame.radius)
             .shadow(color: .black.opacity(hovering ? 0.26 : 0.18), radius: hovering ? 14 : 10, y: hovering ? 8 : 5)
-            .scaleEffect(pressed ? 0.95 : (hovering ? 1.035 : 1), anchor: .top)
+            .scaleEffect(pressed ? 0.96 : 1, anchor: .top)
             .animation(pressed ? .easeInOut(duration: 0.45) : .spring(response: 0.3, dampingFraction: 0.6), value: pressed)
             .opacity(dragging ? 0.45 : 1)
             .overlay(alignment: .topLeading) {
@@ -181,8 +186,8 @@ struct PeggedView: View {
             }
         }
         .padding(10)
-        .frame(width: (item.isMemo ? Layout.memoWidth : Layout.cardWidth) - 14,
-               height: item.isMemo ? 122 : 104)
+        .frame(width: memoRatio.cardContentSize.width,
+               height: memoRatio.cardContentSize.height)
         .background(memoBackground(for: item.memoColor))
         .animation(.easeInOut(duration: 0.22), value: item.memoColor)
         .clipShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
@@ -193,7 +198,7 @@ struct PeggedView: View {
         .padding(Frame.inset)
         .glassFrame(cornerRadius: Frame.radius)
         .shadow(color: .black.opacity(hovering ? 0.26 : 0.18), radius: hovering ? 14 : 10, y: hovering ? 8 : 5)
-        .scaleEffect(pressed ? 0.95 : (hovering ? 1.035 : 1), anchor: .top)
+        .scaleEffect(pressed ? 0.96 : 1, anchor: .top)
         .animation(pressed ? .easeInOut(duration: 0.45) : .spring(response: 0.3, dampingFraction: 0.6), value: pressed)
         .opacity(dragging ? 0.45 : 1)
         .contentShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
@@ -225,6 +230,11 @@ struct PeggedView: View {
             }
             Button("编辑便签") {
                 QuickMemoWindowController.shared.show(line: line, editingMemoID: item.id)
+            }
+            Menu("切换比例") {
+                Button("▭ 宽版 (16:10)") { line.updateMemoAspectRatio(id: item.id, aspectRatio: "wide") }
+                Button("□ 方版 (1:1)") { line.updateMemoAspectRatio(id: item.id, aspectRatio: "square") }
+                Button("▯ 竖版 (3:4)") { line.updateMemoAspectRatio(id: item.id, aspectRatio: "tall") }
             }
             Button(item.isDone ? "标记为未完成" : "标记为已完成") {
                 line.toggleMemoDone(item.id)

@@ -362,7 +362,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let x = Layout.x(index: index, count: line.items.count + 1, width: width)
         let viewTop = Layout.ropeY(x: x, width: width) - Layout.pinAbove
         let cardTop = viewTop + PeggedView.cardOffsetBelowTop
-        let size = PeggedView.cardSize(for: line.items[index].thumb.size)
+        let size: CGSize = {
+            if line.items[index].isMemo {
+                return PeggedView.memoCardSize(for: line.items[index].aspectRatio)
+            } else {
+                return PeggedView.cardSize(for: line.items[index].thumb.size)
+            }
+        }()
         return CGRect(x: panel.frame.minX + x - size.width / 2,
                       y: panel.frame.maxY - cardTop - size.height,
                       width: size.width, height: size.height)
@@ -370,7 +376,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Animates a new memo card taking flight from the editor (or screen center)
     /// straight up onto the clothesline, matching screenshot capture flight.
-    func hangMemoFlight(text: String, color: String, from: CGRect? = nil) {
+    func hangMemoFlight(text: String, color: String, aspectRatio: String = "wide", from: CGRect? = nil) {
         keepOpen = true
         wanted = true
         panel.placeOnScreen()
@@ -384,7 +390,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return CGRect(x: center.x - 170, y: center.y - 130, width: 340, height: 260)
         }()
 
-        guard let id = line.addMemo(text: text, color: color, flying: true) else { return }
+        guard let id = line.addMemo(text: text, color: color, aspectRatio: aspectRatio, flying: true) else { return }
 
         // Let the line come down and lay out before measuring the landing spot.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
