@@ -42,8 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastLiveCount = 0
     /// The screen a new capture was taken on: the line goes there.
     private var pendingScreen: NSScreen?
+    static weak var shared: AppDelegate?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Self.shared = self
         let host = NSHostingView(rootView: LineView(line: line))
         host.sizingOptions = []
         panel = LinePanel(content: host)
@@ -354,7 +356,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Where a card will hang, in screen coordinates, using the same layout
     /// as the line view.
-    private func cardFrame(for id: UUID) -> CGRect? {
+    func cardFrame(for id: UUID) -> CGRect? {
         guard let index = line.items.firstIndex(where: { $0.id == id }) else { return nil }
         let width = panel.frame.width
         let x = Layout.x(index: index, count: line.items.count + 1, width: width)
@@ -364,6 +366,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return CGRect(x: panel.frame.minX + x - size.width / 2,
                       y: panel.frame.maxY - cardTop - size.height,
                       width: size.width, height: size.height)
+    }
+
+    /// Animates a new memo card taking flight from the editor (or screen center)
+    /// straight up onto the clothesline, matching screenshot capture flight.
+    func hangMemoFlight(text: String, color: String, from: CGRect? = nil) {
+        keepOpen = true
+        wanted = true
+        panel.placeOnScreen()
+        updateCapacity()
+        refresh()
+        reveal(pinned: true)
+
+        let targetScreen = panel.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        let originRect = from ?? {
+            let center = CGPoint(x: targetScreen.frame.midX, y: targetScreen.frame.midY)
+            return CGRect(x: center.x - 170, y: center.y - 130, width: 340, height: 260)
+        }()
+
+        guard let id = line.addMemo(text: text, color: color, flying: true) else { return }
+
+        // Let the line come down and lay out before measuring the landing spot.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
+            guard let self, let screen = self.panel.screen ?? NSScreen.main,
+                  let to = self.cardFrame(for: id),
+                  let item = self.line.items.first(where: { $0.id == id }) else {
+                self?.line.land(id)
+                return
+            }
+            guard let image = item.thumb.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                self.line.land(id)
+                return
+            }
+            CaptureFlight.fly(image: image, from: originRect, to: to, tilt: CGFloat(item.tilt), on: screen) { [weak self] in
+                self?.line.land(id)
+                self?.line.play("Tink", volume: 0.35)
+            }
+        }
     }
 
     /// Decides whether the panel is ordered in at all: something to show,

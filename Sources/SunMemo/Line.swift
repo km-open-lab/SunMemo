@@ -140,7 +140,7 @@ final class Line: ObservableObject {
     // MARK: Memo Operations
 
     @discardableResult
-    func addMemo(text: String, color: String = "yellow") -> UUID? {
+    func addMemo(text: String, color: String = "yellow", flying: Bool = false) -> UUID? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
@@ -155,14 +155,17 @@ final class Line: ObservableObject {
         try? data.write(to: fileURL)
 
         let thumb = makeMemoThumbnail(text: trimmed, color: color, isDone: false)
-        let item = Pegged(id: id, url: fileURL, thumb: thumb, isMemo: true,
+        var item = Pegged(id: id, url: fileURL, thumb: thumb, flying: flying, isMemo: true,
                           memoText: trimmed, memoColor: color,
                           isDone: false, createdAt: memoData.createdAt)
+        item.flying = flying
         items.append(item)
 
         // Memos are never auto-dropped! Cards stack and overlap smoothly.
         save()
-        play("Tink", volume: 0.35)
+        if !flying {
+            play("Tink", volume: 0.35)
+        }
         return id
     }
 
@@ -413,7 +416,7 @@ final class Line: ObservableObject {
 
     // MARK: Helpers
 
-    private func play(_ name: String, volume: Float) {
+    func play(_ name: String, volume: Float = 0.5) {
         guard soundOn, let sound = NSSound(named: name)?.copy() as? NSSound else { return }
         sound.volume = volume
         sound.play()

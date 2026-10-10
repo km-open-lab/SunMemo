@@ -197,8 +197,11 @@ struct PeggedView: View {
         .animation(pressed ? .easeInOut(duration: 0.45) : .spring(response: 0.3, dampingFraction: 0.6), value: pressed)
         .opacity(dragging ? 0.45 : 1)
         .contentShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
-        .onTapGesture {
-            line.open(item.id)
+        .onTapGesture(count: 2) {
+            QuickMemoWindowController.shared.show(line: line, editingMemoID: item.id)
+        }
+        .onTapGesture(count: 1) {
+            MemoPreviewWindowController.shared.show(line: line, memoID: item.id)
         }
         .overlay(alignment: .topLeading) {
             if hovering && !dragging && !isEditing {
@@ -217,8 +220,11 @@ struct PeggedView: View {
             }
         }
         .contextMenu {
+            Button("查看完整便签") {
+                MemoPreviewWindowController.shared.show(line: line, memoID: item.id)
+            }
             Button("编辑便签") {
-                line.open(item.id)
+                QuickMemoWindowController.shared.show(line: line, editingMemoID: item.id)
             }
             Button(item.isDone ? "标记为未完成" : "标记为已完成") {
                 line.toggleMemoDone(item.id)

@@ -33,13 +33,17 @@ final class QuickMemoWindowController {
             initialColor: initialColor,
             onSave: { [weak self] text, color in
                 guard let self, let line = self.currentLine else { return }
+                let sourceRect = self.window?.frame
+                self.close()
                 if let editingMemoID {
                     line.updateMemo(id: editingMemoID, text: text, color: color)
+                    NotificationCenter.default.post(name: .tendederoRevealLine, object: nil)
+                } else if let appDelegate = AppDelegate.shared {
+                    appDelegate.hangMemoFlight(text: text, color: color, from: sourceRect)
                 } else {
                     line.addMemo(text: text, color: color)
+                    NotificationCenter.default.post(name: .tendederoRevealLine, object: nil)
                 }
-                self.close()
-                NotificationCenter.default.post(name: .tendederoRevealLine, object: nil)
             },
             onCancel: { [weak self] in
                 self?.close()

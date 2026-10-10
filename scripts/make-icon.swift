@@ -212,13 +212,110 @@ func drawClothespin() {
     NSBezierPath(roundedRect: springRect, xRadius: 3, yRadius: 3).fill()
 }
 
+// MARK: - Polaroid Photo Helper
+func hangPhoto(centerX: CGFloat, width: CGFloat, height: CGFloat, angle: CGFloat) {
+    let top = lineY(centerX) + 38
+    ctx.saveGState()
+    ctx.translateBy(x: centerX, y: top)
+    ctx.rotate(by: angle * .pi / 180)
+
+    let radius: CGFloat = 40
+    let cardRect = NSRect(x: -width / 2, y: -height, width: width, height: height)
+    let cardPath = NSBezierPath(roundedRect: cardRect, xRadius: radius, yRadius: radius)
+
+    // Soft photo card shadow
+    ctx.saveGState()
+    shadow(0.38, blur: 36, y: -20)
+    color(255, 255, 255).setFill()
+    cardPath.fill()
+    ctx.restoreGState()
+
+    // Crisp polaroid paper base
+    NSGradient(colors: [color(255, 255, 255), color(246, 247, 250)], atLocations: [0, 1], colorSpace: .sRGB)!
+        .draw(in: cardPath, angle: -85)
+
+    // Subtle paper edge stroke
+    color(0, 0, 0, 0.10).setStroke()
+    cardPath.lineWidth = 2
+    cardPath.stroke()
+
+    // Inner photo area (classic Polaroid: thin top/sides, wide bottom margin)
+    let sideMargin: CGFloat = 24
+    let topMargin: CGFloat = 28
+    let bottomMargin: CGFloat = 82
+    let photoW = width - sideMargin * 2
+    let photoH = height - topMargin - bottomMargin
+    let photoRect = NSRect(x: -width / 2 + sideMargin, y: -height + bottomMargin, width: photoW, height: photoH)
+    let photoPath = NSBezierPath(roundedRect: photoRect, xRadius: 20, yRadius: 20)
+
+    ctx.saveGState()
+    photoPath.addClip()
+
+    // Photo contents: Vivid blue sky, golden sun & lush hill
+    NSGradient(colors: [color(52, 140, 245), color(125, 202, 255), color(255, 230, 205)],
+               atLocations: [0, 0.6, 1.0], colorSpace: .sRGB)!
+        .draw(in: photoRect, angle: -90)
+
+    // Golden sun
+    let sunR: CGFloat = 28
+    let sunP = NSPoint(x: photoRect.minX + 54, y: photoRect.maxY - 52)
+    color(255, 235, 120).setFill()
+    NSBezierPath(ovalIn: NSRect(x: sunP.x - sunR, y: sunP.y - sunR, width: sunR * 2, height: sunR * 2)).fill()
+
+    // Distant mountain
+    let mountain1 = NSBezierPath()
+    mountain1.move(to: NSPoint(x: photoRect.minX - 10, y: photoRect.minY))
+    mountain1.line(to: NSPoint(x: photoRect.minX + photoW * 0.45, y: photoRect.minY + photoH * 0.52))
+    mountain1.line(to: NSPoint(x: photoRect.maxX + 10, y: photoRect.minY))
+    mountain1.close()
+    color(105, 138, 205, 0.78).setFill()
+    mountain1.fill()
+
+    // Near green hill
+    let hill = NSBezierPath()
+    hill.move(to: NSPoint(x: photoRect.minX - 10, y: photoRect.minY))
+    hill.curve(to: NSPoint(x: photoRect.maxX + 10, y: photoRect.minY + photoH * 0.32),
+               controlPoint1: NSPoint(x: photoRect.minX + photoW * 0.35, y: photoRect.minY + photoH * 0.44),
+               controlPoint2: NSPoint(x: photoRect.minX + photoW * 0.75, y: photoRect.minY + photoH * 0.22))
+    hill.line(to: NSPoint(x: photoRect.maxX + 10, y: photoRect.minY))
+    hill.close()
+    NSGradient(colors: [color(68, 182, 116), color(42, 138, 82)], atLocations: [0, 1], colorSpace: .sRGB)!
+        .draw(in: hill, angle: -80)
+
+    // Glossy diagonal sheen reflection
+    let sheen = NSBezierPath()
+    sheen.move(to: NSPoint(x: photoRect.minX - 20, y: photoRect.maxY + 10))
+    sheen.line(to: NSPoint(x: photoRect.minX + photoW * 0.62, y: photoRect.maxY + 10))
+    sheen.line(to: NSPoint(x: photoRect.minX - 20, y: photoRect.minY + photoH * 0.36))
+    sheen.close()
+    color(255, 255, 255, 0.24).setFill()
+    sheen.fill()
+
+    ctx.restoreGState()
+
+    // Photo cutout inner border
+    color(0, 0, 0, 0.12).setStroke()
+    photoPath.lineWidth = 1.5
+    photoPath.stroke()
+
+    // Subtle handwritten caption line on Polaroid bottom chin
+    let captionW: CGFloat = 88
+    let captionRect = NSRect(x: -captionW / 2, y: -height + 36, width: captionW, height: 8)
+    color(0, 0, 0, 0.14).setFill()
+    NSBezierPath(roundedRect: captionRect, xRadius: 4, yRadius: 4).fill()
+
+    // Wooden Clothespin clipping top of photo
+    drawClothespin()
+
+    ctx.restoreGState()
+}
+
 // Left Card: Main Todo Checklist Note (Yellow Pastel)
 hangMemo(centerX: 360, width: 330, height: 380, angle: -4.5,
          bgColors: [color(255, 248, 200), color(255, 235, 160)], isTodo: true)
 
-// Right Card: Idea Note (Pink Pastel)
-hangMemo(centerX: 660, width: 300, height: 360, angle: 5.5,
-         bgColors: [color(255, 230, 240), color(255, 205, 225)], isTodo: false)
+// Right Card: Polaroid Photo (Screenshot / Image Capture)
+hangPhoto(centerX: 665, width: 310, height: 375, angle: 6.0)
 
 ctx.restoreGState()
 NSGraphicsContext.restoreGraphicsState()
