@@ -8,7 +8,7 @@
   <br><br>
   <strong>纯本地 · 离线隐私 · 极速流畅 · 专为 macOS 14+ 打造</strong>
   <br><br>
-  <a href="https://github.com/zhangkaiming2579-dev/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.0.0)</strong></a>
+  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.0.0)</strong></a>
   &nbsp;·&nbsp;
   <a href="#-快捷键与操作手势">快捷键一览</a>
   &nbsp;·&nbsp;
@@ -69,7 +69,7 @@
 ## 📦 下载与安装 (Installation)
 
 ### 方式 1：直接下载 DMG 安装包（推荐）
-1. 前往 [Releases 页面](https://github.com/zhangkaiming2579-dev/SunMemo/releases/latest) 下载最新版本的 `SunMemo-1.0.0.dmg`。
+1. 前往 [Releases 页面](https://github.com/km-open-lab/SunMemo/releases/latest) 下载最新版本的 `SunMemo-1.0.0.dmg`。
 2. 双击打开 DMG，将 **SunMemo.app** 拖动至 **Applications** 文件夹即可。
 3. 首次启动时，SunMemo 会弹出欢迎与使用引导卡片，按指引开启即可畅享。
 
@@ -78,7 +78,7 @@
 
 ```sh
 # 克隆仓库
-git clone https://github.com/zhangkaiming2579-dev/SunMemo.git
+git clone https://github.com/km-open-lab/SunMemo.git
 cd SunMemo
 
 # 编译并生成 SunMemo.app
