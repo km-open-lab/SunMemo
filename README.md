@@ -143,6 +143,14 @@ SunMemo/
 
 ---
 
+## 👥 贡献者与共同作者 (Contributors & Authors)
+
+- **发起与核心开发**：[@km-open-lab](https://github.com/km-open-lab)
+- **核心贡献者 / 共同作者**：
+  - [@whatwoods](https://github.com/whatwoods) (Way) — 核心贡献：便签防丢草稿机制、文件原子写入与损坏隔离、跨进程安全加固、全局快捷键冲突防御与文档校验。
+
+---
+
 ## 📄 开源许可与致谢 (License & Credits)
 
 - 本项目基于 **MIT License** 开源。

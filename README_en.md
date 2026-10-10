@@ -146,6 +146,14 @@ SunMemo/
 
 ---
 
+## 👥 Contributors & Authors
+
+- **Founder & Core Development**: [@km-open-lab](https://github.com/km-open-lab)
+- **Core Contributor / Co-Author**:
+  - [@whatwoods](https://github.com/whatwoods) (Way) — Core contributions: Draft protection against data loss, atomic file persistence and corruption isolation, cross-process security hardening, global hotkey collision prevention, and documentation accuracy.
+
+---
+
 ## 📄 License & Credits
 
 - Licensed under the **MIT License**.

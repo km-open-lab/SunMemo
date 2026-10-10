@@ -1,5 +1,17 @@
 # 项目进度记录
 
+## 2026-10-10 22:20 CST — 合并 PR #1 并正式添加贡献者与共同作者致谢
+
+- 用户原话或需求摘要：「合并」「把提交pr的人一起也添加为共同作者可以吗」。
+- 完成内容与技术实现：
+  1. PR #1 合并：在终端通过 GitHub CLI 验证分支清洁度后，使用 Squash Merge 正式将 PR #1 合入 `main` 分支并同步本地拉取。
+  2. 贡献者与共同作者铭刻：在 `README.md` 与 `README_en.md` 中新增「👥 贡献者与共同作者 (Contributors & Authors)」独立章节，公开致谢与铭刻 `@whatwoods (Way)` 对 SunMemo 数据安全、防丢稿机制、文件原子写入与安全加固的杰出贡献。
+  3. GitHub 贡献者图谱同步：通过 PR #1 的合入，`whatwoods` 已正式进入 GitHub 官方 Contributors 列表。
+- 验证结果：本地构建与 `check-strings.swift` 验证无异常；README 中英文版贡献者结构对齐无误。
+- 生产 / 发布边界：更新 `README.md`、`README_en.md`，更新 `TASKLOG.md`，推送到 `origin/main`。
+- 涉及文件：`README.md`、`README_en.md`、`TASKLOG.md`。
+
+
 ## 2026-10-10 — 修复数据安全与安全性问题（代码审查 P0 1–6），更正 README 宣传口径
 
 - 用户原话或需求摘要：「先修 P0 的 1–6 条，同时把 README 里"双向同步""0 网络"的说法改准确。」
