@@ -48,15 +48,19 @@ struct LineView: View {
             ZStack(alignment: .topLeading) {
                 Rope(width: width)
 
-                // Hanging cards (stacked with zIndex, cards overlap naturally when many)
+                // Hanging cards (with macOS Dock-like magnification wave on hover)
                 ForEach(Array(line.items.enumerated()), id: \.element.id) { index, item in
                     let x = Layout.x(index: index, count: totalCards, width: width)
                     let ropeY = Layout.ropeY(x: x, width: width)
                     let itemWidth = item.isMemo ? Layout.memoWidth : Layout.cardWidth
+                    let mag = dockMagnification(index: index, hoveredID: line.hoveredID)
                     PeggedView(item: item, line: line)
+                        .scaleEffect(mag.scale, anchor: .top)
+                        .offset(y: mag.yOffset)
                         .frame(width: itemWidth, height: Layout.panelHeight - ropeY, alignment: .top)
                         .position(x: x, y: ropeY - Layout.pinAbove + (Layout.panelHeight - ropeY) / 2)
-                        .zIndex(Double(index + 1))
+                        .zIndex(mag.zIndex)
+                        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: line.hoveredID)
                 }
 
                 // Add Memo Card at the end of the line
@@ -89,6 +93,23 @@ struct LineView: View {
         }
         .onPreferenceChange(HitRectsKey.self) { rects in
             line.hitRects = rects
+        }
+    }
+
+    private func dockMagnification(index: Int, hoveredID: UUID?) -> (scale: CGFloat, yOffset: CGFloat, zIndex: Double) {
+        guard let hoveredID,
+              let hIndex = line.items.firstIndex(where: { $0.id == hoveredID }) else {
+            return (1.0, 0.0, Double(index + 1))
+        }
+        let dist = abs(index - hIndex)
+        if dist == 0 {
+            return (1.18, 14.0, 1000.0)
+        } else if dist == 1 {
+            return (1.09, 7.0, 900.0 + Double(index))
+        } else if dist == 2 {
+            return (1.04, 3.0, 800.0 + Double(index))
+        } else {
+            return (1.0, 0.0, Double(index + 1))
         }
     }
 }

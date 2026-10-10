@@ -109,7 +109,7 @@ struct PeggedView: View {
             }
             .animation(.easeOut(duration: 0.18), value: hovering)
             .animation(.easeOut(duration: 0.2), value: copied)
-            .onHover { hovering = $0 }
+            .onHover { hovering = $0; line.setHovered(item.id, hovering: $0) }
             .background(
                 GeometryReader { g in
                     Color.clear.preference(key: HitRectsKey.self,
@@ -201,7 +201,7 @@ struct PeggedView: View {
             QuickMemoWindowController.shared.show(line: line, editingMemoID: item.id)
         }
         .onTapGesture(count: 1) {
-            MemoPreviewWindowController.shared.show(line: line, memoID: item.id)
+            MemoPreviewWindowController.shared.show(line: line, itemID: item.id)
         }
         .overlay(alignment: .topLeading) {
             if hovering && !dragging && !isEditing {
@@ -221,7 +221,7 @@ struct PeggedView: View {
         }
         .contextMenu {
             Button("查看完整便签") {
-                MemoPreviewWindowController.shared.show(line: line, memoID: item.id)
+                MemoPreviewWindowController.shared.show(line: line, itemID: item.id)
             }
             Button("编辑便签") {
                 QuickMemoWindowController.shared.show(line: line, editingMemoID: item.id)
@@ -241,7 +241,7 @@ struct PeggedView: View {
             NSItemProvider(object: item.memoText as NSString)
         }
         .animation(.easeOut(duration: 0.18), value: hovering)
-        .onHover { hovering = $0 }
+        .onHover { hovering = $0; line.setHovered(item.id, hovering: $0) }
         .background(
             GeometryReader { g in
                 Color.clear.preference(key: HitRectsKey.self,

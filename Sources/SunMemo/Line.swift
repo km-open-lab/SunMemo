@@ -70,6 +70,15 @@ final class Line: ObservableObject {
     /// Inline adding/editing memo state
     @Published var isAddingMemo = false
     @Published var editingID: UUID?
+    @Published var hoveredID: UUID?
+
+    func setHovered(_ id: UUID, hovering: Bool) {
+        if hovering {
+            hoveredID = id
+        } else if hoveredID == id {
+            hoveredID = nil
+        }
+    }
 
     /// Flag to prevent ClipboardWatcher from reacting to our own copy operations
     var isInternalCopy = false

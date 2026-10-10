@@ -29,8 +29,8 @@ struct GrabArea: NSViewRepresentable {
         let line = line
         view.url = item.url
         view.dragImage = item.thumb
-        view.onClick = { line.copy(id) }
-        view.onDoubleClick = { line.open(id) }
+        view.onClick = { MemoPreviewWindowController.shared.show(line: line, itemID: id) }
+        view.onDoubleClick = { line.copy(id) }
         view.onDragStart = { line.draggingID = id }
         view.onDragEnd = {
             line.draggingID = nil
@@ -44,14 +44,16 @@ struct GrabArea: NSViewRepresentable {
         view.menuProvider = {
             let menu = NSMenu()
             if item.isMemo {
+                menu.addItem(ClosureMenuItem("查看完整便签") { MemoPreviewWindowController.shared.show(line: line, itemID: id) })
                 menu.addItem(ClosureMenuItem(L("Copy")) { line.copy(id) })
                 menu.addItem(ClosureMenuItem(item.isDone ? "标记为未完成" : "标记为已完成") {
                     line.toggleMemoDone(id)
                 })
-                menu.addItem(ClosureMenuItem("编辑备忘") { line.open(id) })
+                menu.addItem(ClosureMenuItem("编辑便签") { QuickMemoWindowController.shared.show(line: line, editingMemoID: id) })
                 menu.addItem(.separator())
                 menu.addItem(ClosureMenuItem("撕下便签") { line.discard(id) })
             } else {
+                menu.addItem(ClosureMenuItem("放大查看") { MemoPreviewWindowController.shared.show(line: line, itemID: id) })
                 menu.addItem(ClosureMenuItem(L("Copy")) { line.copy(id) })
                 menu.addItem(ClosureMenuItem(L("Open")) { line.open(id) })
                 menu.addItem(ClosureMenuItem(L("Markup")) { line.markup(id) })

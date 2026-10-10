@@ -569,9 +569,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var zone = panel.frame
         if let screen = panel.screen { zone.size.height = screen.frame.maxY - zone.minY }
         let inside = NSMouseInRect(mouse, zone, false)
-        if inside && pinned { pinned = false }
+        if inside && pinned && !MemoPreviewWindowController.shared.isOpen { pinned = false }
 
-        let busy = pinned || GrabView.isDragging || line.pressedID != nil || now < peekUntil
+        let busy = pinned || GrabView.isDragging || line.pressedID != nil || MemoPreviewWindowController.shared.isOpen || now < peekUntil
         if inside || busy {
             awaySince = nil
         } else {
