@@ -46,9 +46,17 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack(spacing: 12) {
-                Image(systemSymbolName: "sun.max.fill")
-                    .font(.system(size: 26))
-                    .foregroundStyle(.tint)
+                if let appIcon = NSApp.applicationIconImage {
+                    Image(nsImage: appIcon)
+                        .resizable()
+                        .frame(width: 36, height: 36)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                } else {
+                    Image(systemSymbolName: "checklist")
+                        .font(.system(size: 26))
+                        .foregroundStyle(.tint)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("SunMemo (晾想法) 偏好设置")
                         .font(.headline)

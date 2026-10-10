@@ -77,7 +77,7 @@ struct WelcomeView: View {
             // Features List
             VStack(spacing: 12) {
                 FeatureRow(
-                    icon: "sun.max.fill",
+                    icon: "sparkles",
                     iconColor: Color.orange,
                     title: "桌面顶部晾衣绳",
                     description: "按 ⌃ ⌥ ␣ 随时呼出收起，卡片自然层叠收纳"

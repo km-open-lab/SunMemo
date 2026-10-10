@@ -220,7 +220,7 @@ private struct SettingsCornerButton: View {
 private struct Hint: View {
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "sun.max")
+            Image(systemName: "checklist")
                 .font(.system(size: 11))
             Text(L("Take a screenshot and it will hang here"))
                 .font(.system(size: 11.5, weight: .medium, design: .rounded))

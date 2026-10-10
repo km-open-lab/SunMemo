@@ -564,11 +564,91 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Menu bar
 
+    private static func makeMenuBarIcon() -> NSImage {
+        let size = NSSize(width: 22, height: 18)
+        let img = NSImage(size: size, flipped: false) { _ in
+            NSColor.black.setStroke()
+            NSColor.black.setFill()
+
+            // 1. The hanging rope (slight curve)
+            let rope = NSBezierPath()
+            rope.move(to: NSPoint(x: 0.5, y: 14.5))
+            rope.curve(to: NSPoint(x: 21.5, y: 14.5),
+                       controlPoint1: NSPoint(x: 7.0, y: 13.8),
+                       controlPoint2: NSPoint(x: 15.0, y: 13.8))
+            rope.lineWidth = 1.2
+            rope.lineCapStyle = .round
+            rope.stroke()
+
+            // 2. Card 1 (Left memo card with checklist)
+            let card1Rect = NSRect(x: 2.5, y: 3.5, width: 8.0, height: 9.8)
+            let card1 = NSBezierPath(roundedRect: card1Rect, xRadius: 1.2, yRadius: 1.2)
+            card1.lineWidth = 1.15
+            card1.stroke()
+
+            let dot1 = NSBezierPath(ovalIn: NSRect(x: 4.2, y: 9.8, width: 1.4, height: 1.4))
+            dot1.fill()
+            let line1_1 = NSBezierPath()
+            line1_1.move(to: NSPoint(x: 6.4, y: 10.5))
+            line1_1.line(to: NSPoint(x: 9.0, y: 10.5))
+            line1_1.lineWidth = 0.9
+            line1_1.lineCapStyle = .round
+            line1_1.stroke()
+
+            let dot2 = NSBezierPath(ovalIn: NSRect(x: 4.2, y: 6.8, width: 1.4, height: 1.4))
+            dot2.fill()
+            let line1_2 = NSBezierPath()
+            line1_2.move(to: NSPoint(x: 6.4, y: 7.5))
+            line1_2.line(to: NSPoint(x: 8.6, y: 7.5))
+            line1_2.lineWidth = 0.9
+            line1_2.lineCapStyle = .round
+            line1_2.stroke()
+
+            // Card 1 peg (clothespin)
+            let peg1 = NSBezierPath(roundedRect: NSRect(x: 5.8, y: 12.0, width: 1.5, height: 3.4), xRadius: 0.6, yRadius: 0.6)
+            peg1.fill()
+
+            // 3. Card 2 (Right memo card with note lines)
+            let card2Rect = NSRect(x: 11.5, y: 2.2, width: 8.0, height: 10.8)
+            let card2 = NSBezierPath(roundedRect: card2Rect, xRadius: 1.2, yRadius: 1.2)
+            card2.lineWidth = 1.15
+            card2.stroke()
+
+            let line2_1 = NSBezierPath()
+            line2_1.move(to: NSPoint(x: 13.5, y: 9.8))
+            line2_1.line(to: NSPoint(x: 17.5, y: 9.8))
+            line2_1.lineWidth = 0.9
+            line2_1.lineCapStyle = .round
+            line2_1.stroke()
+
+            let line2_2 = NSBezierPath()
+            line2_2.move(to: NSPoint(x: 13.5, y: 7.0))
+            line2_2.line(to: NSPoint(x: 17.0, y: 7.0))
+            line2_2.lineWidth = 0.9
+            line2_2.lineCapStyle = .round
+            line2_2.stroke()
+
+            let line2_3 = NSBezierPath()
+            line2_3.move(to: NSPoint(x: 13.5, y: 4.2))
+            line2_3.line(to: NSPoint(x: 16.0, y: 4.2))
+            line2_3.lineWidth = 0.9
+            line2_3.lineCapStyle = .round
+            line2_3.stroke()
+
+            // Card 2 peg (clothespin)
+            let peg2 = NSBezierPath(roundedRect: NSRect(x: 14.8, y: 11.8, width: 1.5, height: 3.4), xRadius: 0.6, yRadius: 0.6)
+            peg2.fill()
+
+            return true
+        }
+        img.isTemplate = true
+        return img
+    }
+
     private func setUpStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let image = NSImage(systemSymbolName: "sun.max.fill", accessibilityDescription: "SunMemo")
-            ?? NSImage(systemSymbolName: "sun.max", accessibilityDescription: "SunMemo")
-        image?.isTemplate = true
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        let image = Self.makeMenuBarIcon()
+        image.accessibilityDescription = "SunMemo"
         statusItem.button?.image = image
         let menu = NSMenu()
         menu.delegate = self
