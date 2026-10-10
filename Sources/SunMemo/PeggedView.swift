@@ -34,10 +34,10 @@ struct PeggedView: View {
         .transaction { t in if item.falling { t.animation = nil } }
         .animation(.easeOut(duration: 0.16), value: item.flying)
         .onAppear(perform: arrive)
-        .onChange(of: item.flying) { was, now in if was && !now { land() } }
-        .onChange(of: line.gust) { _, _ in breeze() }
-        .onChange(of: copied) { _, isCopied in if isCopied { nudge(3) } }
-        .onChange(of: line.editingID) { _, newID in
+        .onChange(of: item.flying) { isFlying in if !isFlying { land() } }
+        .onChange(of: line.gust) { _ in breeze() }
+        .onChange(of: copied) { isCopied in if isCopied { nudge(3) } }
+        .onChange(of: line.editingID) { newID in
             if newID == item.id {
                 editText = item.memoText
                 isEditing = true

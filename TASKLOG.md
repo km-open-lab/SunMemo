@@ -1,5 +1,18 @@
 # 项目进度记录
 
+## 2026-10-10 16:59 CST — 拓展支持 macOS Ventura 13.0+（含 13.5.2）系统兼容
+
+- 用户原话或需求摘要：「这个系统的用户用不了 吗」（上传 macOS Ventura 13.5.2 系统版本截图）。
+- 完成内容与技术实现：
+  1. 根因排查：原项目 `Package.swift` 限制为 `.macOS(.v14)`，`scripts/build-app.sh` 编译参数为 `triple="...-macosx14.0"` 且 `Info.plist` 硬编码 `<key>LSMinimumSystemVersion</key><string>14.0</string>`，导致 macOS 13.x 用户运行或安装时系统抛出禁止图标并提示无法打开。
+  2. 兼容性改造：
+     - `Package.swift` 下调系统要求至 `.macOS(.v13)`。
+     - 语法兼容：修复 5 处 SwiftUI 在 macOS 14 新增的双参数 `.onChange(of: value) { old, new in }` 闭包，改写为 macOS 13 完全兼容的单参数 `.onChange(of: value) { newValue in }`。
+     - 构建与打包下调：`scripts/build-app.sh` 架构编译目标下调至 `arm64-apple-macosx13.0` 与 `x86_64-apple-macosx13.0`，`Info.plist` 的 `LSMinimumSystemVersion` 变更为 `13.0`。
+- 验证结果：`otool -l` 检查二进制 Mach-O Header，双架构 `minos` 与 `sdk` 均确认为 `13.0`；通用架构构建（Universal Binary）通过；`scripts/make-dmg.sh` 重新产出全面支持 macOS 13+ 的 `SunMemo-1.1.0.dmg`。
+- 生产 / 发布边界：Git 提交并推送至 `origin/main`；GitHub Release `v1.1.0` 已覆盖上传更新后的 DMG 资源。
+- 涉及文件：`Package.swift`、`Sources/SunMemo/LineView.swift`、`Sources/SunMemo/PeggedView.swift`、`scripts/build-app.sh`、`TASKLOG.md`。
+
 ## 2026-10-10 16:55 CST — 建立项目进度记录（TASKLOG.md）与动态版本号构建机制
 
 - 用户原话或需求摘要：「在项目里加一个Tasklog吧记录我要求了什么 改了什么 看看练境那个项目的tasklog咋写的 把之前的补上 然后每次更新是不是需要增加版本号」。

@@ -14,7 +14,7 @@ BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo '1')"
 # plugin they do not include. If the default SDK fails, fall back to the
 # newest macOS 26 SDK installed alongside it.
 build_arch() {
-  local triple="$1-apple-macosx14.0"
+  local triple="$1-apple-macosx13.0"
   if [ -z "${SDKROOT:-}" ] && ! swift build -c "$CONFIG" --triple "$triple" >&2; then
     FALLBACK="$(ls -d /Library/Developer/CommandLineTools/SDKs/MacOSX26*.sdk 2>/dev/null | sort -V | tail -1)"
     if [ -z "$FALLBACK" ]; then exit 1; fi
@@ -26,7 +26,7 @@ build_arch() {
 }
 
 # A universal binary, so it runs on Apple silicon and on Intel Macs, from
-# macOS 14 Sonoma onwards.
+# macOS 13 Ventura onwards.
 OUT="$(mktemp -d)"
 build_arch arm64
 build_arch x86_64
@@ -72,7 +72,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleLocalizations</key><array>${LANGUAGES}</array>
-  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSDesktopFolderUsageDescription</key>

@@ -180,7 +180,7 @@ struct AddMemoCardView: View {
                 .zIndex(1)
             cardContent
         }
-        .onChange(of: line.isAddingMemo) { _, adding in
+        .onChange(of: line.isAddingMemo) { adding in
             if adding {
                 line.isAddingMemo = false
                 QuickMemoWindowController.shared.show(line: line)
