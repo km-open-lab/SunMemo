@@ -10,7 +10,7 @@
 <p align="center">
   <img src="docs/images/icon.png" width="128" height="128" alt="SunMemo App Icon">
   <br><br>
-  <strong>100% Offline & Private · Blazing Fast Native Swift · Compatible with macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
+  <strong>Local Data · No Accounts, No Analytics · Blazing Fast Native Swift · Compatible with macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
   <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 Download Latest DMG (v1.1.0)</strong></a>
   &nbsp;·&nbsp;
@@ -56,17 +56,19 @@
 - Click screenshots to preview with full detail, double-click to copy to clipboard, or long-press to open native macOS Markup tools for freehand sketching and annotations.
 
 ### 💾 5. Dual Markdown Persistence & Tear-Off Archiving
-- **Never Lose a Thought**: All active notes are continuously synchronized two-way to `~/Documents/SunMemo.md`.
+- **Read-only Markdown Export**: Whenever a memo changes, SunMemo exports every memo on the line, plus the archive, to `~/Documents/SunMemo.md`. The export is **one-way**: the file is rewritten each time, so edits made in it are overwritten and never reach SunMemo. Edit memos in SunMemo itself.
+- **No Lost Drafts**: Text in the editor is kept as a draft as you type, and closing the editor or switching to another memo asks first. Memo files are written atomically, and a failed save is reported.
 - **Timestamped Archive**: Tearing off a note never deletes it permanently; it is neatly appended to `# 📦 Archived Memos` with exact creation and tear-off timestamps.
-- **Seamless Interoperability**: Compatible out of the box with **Obsidian, Typora, VS Code, and Apple Notes**.
+- **Readable Anywhere**: Open the export in **Obsidian, Typora or VS Code** to read and search it; copy it first if you want to rework it.
 
 ### 🔄 6. Automatic Update Checks & Preferences
 - Built-in GitHub Releases update checker notifies you unobtrusively in the menu bar whenever a new release arrives.
 - Dedicated preferences panel lets you customize global hotkeys and toggle clipboard auto-hang.
 
-### 🛡️ 7. 100% Offline, Private & Lightweight
-- **Zero network tracking**, **zero user accounts**, and **zero analytics SDKs**.
-- Everything stays strictly local on your Mac.
+### 🛡️ 7. Local-first, Private & Lightweight
+- **Zero user accounts**, **zero tracking or analytics**, and **zero third-party SDKs**.
+- **The only network access is the update check**: on by default, it asks the GitHub Releases API (`api.github.com`) for the latest version at launch and every 24 hours, and never uploads memos or screenshots. Turn it off in Preferences → Software Updates.
+- Memos, screenshots and settings stay on your Mac. If iCloud Desktop & Documents is on, `~/Documents/SunMemo.md` syncs to iCloud along with the rest of Documents.
 
 ---
 
@@ -127,7 +129,7 @@ SunMemo/
 │   ├── QuickMemoWindow.swift        # Floating memo modal, Markdown toolbar & aspect ratio pills
 │   ├── MemoPreviewWindow.swift      # Hero preview modal with 1.3pt catenary suspension cord
 │   ├── MemoAspectRatio.swift       # Wide (16:10), Square (1:1), Tall (3:4) ratio system
-│   ├── MemoSyncManager.swift        # Dual-way local Markdown persistence & tear-off archiving
+│   ├── MemoSyncManager.swift        # One-way, read-only Markdown export & tear-off archiving
 │   ├── UpdateChecker.swift          # GitHub Releases auto-update checker & alert banner
 │   ├── SettingsWindow.swift         # Global hotkey recorder & clipboard preferences
 │   ├── WelcomeWindow.swift          # SwiftUI onboarding guide

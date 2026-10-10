@@ -44,17 +44,29 @@ final class MemoSyncManager {
         guard let data = try? Data(contentsOf: archiveFileURL) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        if let list = try? decoder.decode([ArchivedMemo].self, from: data) {
-            self.archivedMemos = list
+        do {
+            archivedMemos = try decoder.decode([ArchivedMemo].self, from: data)
+        } catch {
+            // Starting from an empty archive would overwrite this file on the
+            // next save. Keep the unreadable one aside instead.
+            let stamp = Int(Date().timeIntervalSince1970)
+            let aside = Line.memosFolder.appendingPathComponent("archived_memos-damaged-\(stamp).json")
+            try? FileManager.default.moveItem(at: archiveFileURL, to: aside)
+            log.error("Archive unreadable, kept as \(aside.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            Line.warn(L("The memo archive could not be read"),
+                      String(format: L("The damaged file was moved to %@ so nothing is lost."), aside.path))
         }
     }
 
     private func saveArchivedMemos() {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(archivedMemos) {
-            try? FileManager.default.createDirectory(at: Line.memosFolder, withIntermediateDirectories: true)
-            try? data.write(to: archiveFileURL)
+        do {
+            try FileManager.default.createDirectory(at: Line.memosFolder, withIntermediateDirectories: true)
+            try encoder.encode(archivedMemos).write(to: archiveFileURL, options: .atomic)
+        } catch {
+            log.error("Could not save the archive: \(error.localizedDescription, privacy: .public)")
+            Line.warn(L("Could not save the memo archive"), error.localizedDescription)
         }
     }
 
@@ -74,7 +86,8 @@ final class MemoSyncManager {
         saveArchivedMemos()
     }
 
-    /// Syncs all live memos and archived torn-down memos to the local markdown document.
+    /// Exports all live memos and archived torn-down memos to the local markdown
+    /// document. One way only: the file is rewritten each time, never read back.
     func sync(items: [Pegged]) {
         let memos = items.filter { $0.isMemo && !$0.falling }
         let f = DateFormatter()
@@ -84,10 +97,10 @@ final class MemoSyncManager {
         var md = """
         # ☀️ SunMemo (晾想法) 便签与待办事项备份
 
-        > 💡 **自动实时同步中**：本文档由 SunMemo 自动维护。
-        > 所有在绳便签与历史撕下的便签均永久保存在此。即使软件退出或撕下卡片，所有想法与待办记录均安全留存。
-        > 支持使用 Obsidian、Typora、VS Code 或 macOS 备忘录随时查看与二次整理。
-        > **最后同步时间**：\(nowString)
+        > ⚠️ **只读导出，请勿在此编辑**：本文档由 SunMemo 自动生成，每次便签变化都会整份重写，
+        > 在这里做的修改会被覆盖、不会回到 SunMemo。要修改便签，请在 SunMemo 里编辑。
+        > 可以用 Obsidian、Typora、VS Code 等查看和检索；需要整理时请先复制一份。
+        > **最后导出时间**：\(nowString)
 
         ---
 
@@ -157,7 +170,7 @@ final class MemoSyncManager {
             try? FileManager.default.createDirectory(at: Line.memosFolder, withIntermediateDirectories: true)
             try? md.write(to: backupURL, atomically: true, encoding: .utf8)
         } catch {
-            print("Failed to sync markdown memo: \(error)")
+            log.error("Could not export SunMemo.md: \(error.localizedDescription, privacy: .public)")
         }
     }
 

@@ -1,60 +1,81 @@
 import AppKit
 import SwiftUI
 
+/// What the editor holds: the text and how the card looks.
+struct MemoDraft: Codable, Equatable {
+    var text: String
+    var color: String
+    var aspectRatio: String
+
+    static let empty = MemoDraft(text: "", color: "yellow", aspectRatio: "wide")
+
+    var isBlank: Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+}
+
+/// The memo editor. It never throws away what you typed without asking:
+/// unsaved text is kept as a draft on every keystroke, so it also survives
+/// a crash, and closing or switching to another memo asks first.
 @MainActor
-final class QuickMemoWindowController {
+final class QuickMemoWindowController: NSObject, NSWindowDelegate {
     static let shared = QuickMemoWindowController()
     private var window: NSPanel?
     private weak var currentLine: Line?
 
-    func show(line: Line, editingMemoID: UUID? = nil) {
-        self.currentLine = line
+    /// The memo being edited, nil for a new one.
+    private var editingMemoID: UUID?
+    /// The memo as saved, or empty for a new one.
+    private var original = MemoDraft.empty
+    /// What the editor holds right now.
+    private var current = MemoDraft.empty
 
-        // Always recreate or reset the window to ensure editingMemoID, text and color are 100% accurate
+    private var hasUnsavedChanges: Bool { current != original && !current.isBlank }
+
+    func show(line: Line, editingMemoID: UUID? = nil) {
         if let window {
-            window.close()
-            self.window = nil
+            // Already editing this one: bring it back with what you typed.
+            if editingMemoID == self.editingMemoID {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+            guard confirmClose() else {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+            closeWindow()
         }
 
-        let initialText: String
-        let initialColor: String
-        let initialAspectRatio: String
+        self.currentLine = line
+        self.editingMemoID = editingMemoID
+        Drafts.prune(keeping: Set(line.items.map(\.id)))
+
         if let editingMemoID,
            let memo = line.items.first(where: { $0.id == editingMemoID && $0.isMemo }) {
-            initialText = memo.memoText
-            initialColor = memo.memoColor
-            initialAspectRatio = memo.aspectRatio
+            original = MemoDraft(text: memo.memoText, color: memo.memoColor, aspectRatio: memo.aspectRatio)
         } else {
-            initialText = ""
-            initialColor = "yellow"
-            initialAspectRatio = "wide"
+            original = .empty
         }
+        // Text left unsaved last time comes back.
+        current = Drafts.load(for: editingMemoID) ?? original
 
         let view = QuickMemoView(
             editingID: editingMemoID,
-            initialText: initialText,
-            initialColor: initialColor,
-            initialAspectRatio: initialAspectRatio,
+            initialText: current.text,
+            initialColor: current.color,
+            initialAspectRatio: current.aspectRatio,
+            onEdit: { [weak self] text, color, aspectRatio in
+                self?.draftChanged(MemoDraft(text: text, color: color, aspectRatio: aspectRatio))
+            },
             onSave: { [weak self] text, color, aspectRatio in
-                guard let self, let line = self.currentLine else { return }
-                let sourceRect = self.window?.frame
-                self.close()
-                if let editingMemoID {
-                    line.updateMemo(id: editingMemoID, text: text, color: color, aspectRatio: aspectRatio)
-                    NotificationCenter.default.post(name: .tendederoRevealLine, object: nil)
-                } else if let appDelegate = AppDelegate.shared {
-                    appDelegate.hangMemoFlight(text: text, color: color, aspectRatio: aspectRatio, from: sourceRect)
-                } else {
-                    line.addMemo(text: text, color: color, aspectRatio: aspectRatio)
-                    NotificationCenter.default.post(name: .tendederoRevealLine, object: nil)
-                }
+                self?.save(MemoDraft(text: text, color: color, aspectRatio: aspectRatio))
             },
             onCancel: { [weak self] in
-                self?.close()
+                self?.requestClose()
             }
         )
 
-        let initialSize = (MemoAspectRatio(rawValue: initialAspectRatio) ?? .wide).editorWindowSize
+        let initialSize = (MemoAspectRatio(rawValue: current.aspectRatio) ?? .wide).editorWindowSize
         let hosting = NSHostingView(rootView: view)
         let win = NSPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
@@ -70,6 +91,7 @@ final class QuickMemoWindowController {
         win.level = .floating
         win.backgroundColor = .clear
         win.contentView = hosting
+        win.delegate = self
         if let screen = NSScreen.screens.first {
             let visible = screen.visibleFrame
             win.setFrameOrigin(CGPoint(x: visible.midX - initialSize.width / 2, y: visible.midY - initialSize.height / 2))
@@ -83,6 +105,80 @@ final class QuickMemoWindowController {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    private func draftChanged(_ draft: MemoDraft) {
+        current = draft
+        if hasUnsavedChanges {
+            Drafts.store(draft, for: editingMemoID)
+        } else {
+            Drafts.remove(for: editingMemoID)
+        }
+    }
+
+    private func save(_ draft: MemoDraft) {
+        guard let line = currentLine, !draft.isBlank else { return }
+        let sourceRect = window?.frame
+        let editingMemoID = self.editingMemoID
+        Drafts.remove(for: editingMemoID)
+        closeWindow()
+
+        // A memo taken down while it was being edited is hung again as a new
+        // one, so the edit is not lost.
+        if let editingMemoID, line.items.contains(where: { $0.id == editingMemoID && $0.isMemo && !$0.falling }) {
+            line.updateMemo(id: editingMemoID, text: draft.text, color: draft.color, aspectRatio: draft.aspectRatio)
+            NotificationCenter.default.post(name: .sunMemoRevealLine, object: nil)
+        } else if let appDelegate = AppDelegate.shared {
+            appDelegate.hangMemoFlight(text: draft.text, color: draft.color, aspectRatio: draft.aspectRatio, from: sourceRect)
+        } else {
+            line.addMemo(text: draft.text, color: draft.color, aspectRatio: draft.aspectRatio)
+            NotificationCenter.default.post(name: .sunMemoRevealLine, object: nil)
+        }
+    }
+
+    /// Esc, the Cancel button or the cross: closes, asking first when there
+    /// is unsaved text.
+    private func requestClose() {
+        if confirmClose() { closeWindow() }
+    }
+
+    /// Whether the editor may close. With unsaved text, the choice is to keep
+    /// it as a draft, discard it, or go back to editing.
+    private func confirmClose() -> Bool {
+        guard hasUnsavedChanges else {
+            Drafts.remove(for: editingMemoID)
+            return true
+        }
+        let alert = NSAlert()
+        if editingMemoID == nil {
+            alert.messageText = L("This memo is not on the line yet")
+            alert.informativeText = L("Keep it as a draft and it comes back the next time you write a new memo.")
+        } else {
+            alert.messageText = L("This memo has unsaved changes")
+            alert.informativeText = L("Keep them as a draft and they come back the next time you edit this memo.")
+        }
+        alert.addButton(withTitle: L("Keep Draft"))
+        alert.addButton(withTitle: L("Keep Editing"))
+        alert.addButton(withTitle: L("Discard"))
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            Drafts.store(current, for: editingMemoID)
+            return true
+        case .alertThirdButtonReturn:
+            Drafts.remove(for: editingMemoID)
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// The window's own close button.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard confirmClose() else { return false }
+        sender.delegate = nil
+        resetState()
+        return true
+    }
+
     func resizeWindow(to size: CGSize) {
         guard let window else { return }
         var frame = window.frame
@@ -92,9 +188,67 @@ final class QuickMemoWindowController {
         window.animator().setFrame(frame, display: true)
     }
 
+    /// Closes the editor, asking first if there is unsaved text.
     func close() {
+        requestClose()
+    }
+
+    private func closeWindow() {
+        window?.delegate = nil
         window?.close()
+        resetState()
+    }
+
+    private func resetState() {
         window = nil
+        editingMemoID = nil
+        original = .empty
+        current = .empty
+    }
+}
+
+/// Unsaved editor text, one draft per memo plus one for a new memo, kept in
+/// the user defaults so it survives quitting and crashes.
+private enum Drafts {
+    private static let key = "memoDrafts"
+    private static let newMemo = "new"
+
+    private static func slot(_ id: UUID?) -> String { id?.uuidString ?? newMemo }
+
+    private static func all() -> [String: MemoDraft] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let drafts = try? JSONDecoder().decode([String: MemoDraft].self, from: data) else { return [:] }
+        return drafts
+    }
+
+    private static func save(_ drafts: [String: MemoDraft]) {
+        if drafts.isEmpty {
+            UserDefaults.standard.removeObject(forKey: key)
+        } else if let data = try? JSONEncoder().encode(drafts) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
+    static func load(for id: UUID?) -> MemoDraft? { all()[slot(id)] }
+
+    static func store(_ draft: MemoDraft, for id: UUID?) {
+        var drafts = all()
+        drafts[slot(id)] = draft
+        save(drafts)
+    }
+
+    static func remove(for id: UUID?) {
+        var drafts = all()
+        guard drafts.removeValue(forKey: slot(id)) != nil else { return }
+        save(drafts)
+    }
+
+    /// Drafts of memos that are no longer on the line are dropped. The new
+    /// memo draft always stays.
+    static func prune(keeping ids: Set<UUID>) {
+        let drafts = all()
+        let kept = drafts.filter { key, _ in key == newMemo || UUID(uuidString: key).map(ids.contains) == true }
+        if kept.count != drafts.count { save(kept) }
     }
 }
 
@@ -109,13 +263,16 @@ struct QuickMemoView: View {
     @State private var color: String
     @State private var aspectRatio: String
     @State private var isPreviewMode: Bool = false
+    let onEdit: (String, String, String) -> Void
     let onSave: (String, String, String) -> Void
     let onCancel: () -> Void
 
     init(editingID: UUID?, initialText: String, initialColor: String, initialAspectRatio: String = "wide",
+         onEdit: @escaping (String, String, String) -> Void = { _, _, _ in },
          onSave: @escaping (String, String, String) -> Void,
          onCancel: @escaping () -> Void) {
         self.editingID = editingID
+        self.onEdit = onEdit
         _text = State(initialValue: initialText)
         _color = State(initialValue: initialColor)
         _aspectRatio = State(initialValue: initialAspectRatio)
@@ -363,6 +520,10 @@ struct QuickMemoView: View {
                 .stroke(Color.black.opacity(0.12), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.24), radius: 20, y: 10)
+        // Every change is reported, so the controller can keep a draft.
+        .onChange(of: text) { _ in onEdit(text, color, aspectRatio) }
+        .onChange(of: color) { _ in onEdit(text, color, aspectRatio) }
+        .onChange(of: aspectRatio) { _ in onEdit(text, color, aspectRatio) }
     }
 
     private func commit() {
