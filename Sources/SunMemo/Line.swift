@@ -95,8 +95,8 @@ final class Line: ObservableObject {
     var maxItems = 35
 
     var soundOn: Bool {
-        get { !UserDefaults.standard.bool(forKey: "soundOff") }
-        set { UserDefaults.standard.set(!newValue, forKey: "soundOff") }
+        get { !Demo.defaults.bool(forKey: "soundOff") }
+        set { Demo.defaults.set(!newValue, forKey: "soundOff") }
     }
 
     var liveCount: Int { items.filter { !$0.falling }.count }
@@ -104,6 +104,7 @@ final class Line: ObservableObject {
     private let storeKey = "pegged"
 
     static let memosFolder: URL = {
+        if Demo.isActive { return Demo.folder.appendingPathComponent("Memos", isDirectory: true) }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let newURL = base.appendingPathComponent("SunMemo/Memos", isDirectory: true)
         let oldURL = base.appendingPathComponent("Tendedero/Memos", isDirectory: true)
@@ -390,12 +391,12 @@ final class Line: ObservableObject {
 
     private func save() {
         let paths = items.filter { !$0.falling }.map(\.url.path)
-        UserDefaults.standard.set(paths, forKey: storeKey)
+        Demo.defaults.set(paths, forKey: storeKey)
         MemoSyncManager.shared.sync(items: items)
     }
 
     private func restore() {
-        let paths = UserDefaults.standard.stringArray(forKey: storeKey) ?? []
+        let paths = Demo.defaults.stringArray(forKey: storeKey) ?? []
         var loadedPaths = Set<String>()
         for path in paths where FileManager.default.fileExists(atPath: path) {
             hang(URL(fileURLWithPath: path), quietly: true)

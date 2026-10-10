@@ -23,6 +23,7 @@ enum Inbox {
     private static let savedKey = "inboxSavedSettings"
 
     static let folder: URL = {
+        if Demo.isActive { return Demo.folder.appendingPathComponent("Screenshots", isDirectory: true) }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let newURL = base.appendingPathComponent("SunMemo/Screenshots", isDirectory: true)
         let oldURL = base.appendingPathComponent("Tendedero/Screenshots", isDirectory: true)
@@ -34,14 +35,14 @@ enum Inbox {
 
     /// The user's choice, kept across launches.
     static var isEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: enabledKey) }
-        set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
+        get { Demo.defaults.bool(forKey: enabledKey) }
+        set { Demo.defaults.set(newValue, forKey: enabledKey) }
     }
 
     /// Whether we already asked, so the offer appears only once.
     static var wasOffered: Bool {
-        get { UserDefaults.standard.bool(forKey: offeredKey) }
-        set { UserDefaults.standard.set(newValue, forKey: offeredKey) }
+        get { Demo.defaults.bool(forKey: offeredKey) }
+        set { Demo.defaults.set(newValue, forKey: offeredKey) }
     }
 
     /// Whether macOS is currently sending screenshots to our folder.
@@ -52,6 +53,8 @@ enum Inbox {
     }
 
     static func apply() {
+        // The demo never touches the system's screenshot settings.
+        guard !Demo.isActive else { return }
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         // Never save our own values as the "previous" ones, for example after
         // a crash left them applied.
@@ -61,7 +64,7 @@ enum Inbox {
                 "locationScreenshot": CFPreferencesCopyAppValue(screenshotLocationKey, domain) as? String ?? NSNull(),
                 "thumbnail": CFPreferencesCopyAppValue(thumbnailKey, domain) as? Bool ?? NSNull(),
             ]
-            UserDefaults.standard.set(saved.compactMapValues { $0 is NSNull ? nil : $0 }, forKey: savedKey)
+            Demo.defaults.set(saved.compactMapValues { $0 is NSNull ? nil : $0 }, forKey: savedKey)
         }
         set(locationKey, folder.path)
         set(screenshotLocationKey, folder.path)
@@ -69,12 +72,13 @@ enum Inbox {
     }
 
     static func restore() {
+        guard !Demo.isActive else { return }
         guard isApplied else { return }
-        let saved = UserDefaults.standard.dictionary(forKey: savedKey) ?? [:]
+        let saved = Demo.defaults.dictionary(forKey: savedKey) ?? [:]
         set(locationKey, saved["location"])
         set(screenshotLocationKey, saved["locationScreenshot"])
         set(thumbnailKey, saved["thumbnail"])
-        UserDefaults.standard.removeObject(forKey: savedKey)
+        Demo.defaults.removeObject(forKey: savedKey)
     }
 
     /// Writes through cfprefsd, so the screenshot service sees it at once.

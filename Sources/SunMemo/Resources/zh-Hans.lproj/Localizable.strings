@@ -49,3 +49,24 @@
 "SunMemo already uses this shortcut for something else." = "SunMemo 已经把这个快捷键用在别的功能上了。";
 "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS 拒绝了这个快捷键，已保留原来的设置。可能已有其他应用在使用它。";
 "A shortcut is already used by another app and does not work. Record a different one." = "有快捷键已被其他应用占用，目前不起作用。请换一个重新录制。";
+
+/* Demo tour (--demo) */
+"Hang your thoughts on the clothesline" = "把想法晾在桌面阳光下";
+"Screenshots hang themselves on the line" = "截图自动挂上晾衣绳";
+"Jot a memo with ⌃⌥N" = "⌃⌥N 随手记一张便签";
+"This week's release" = "本周发布";
+"Screenshots hang themselves" = "截图自动挂绳";
+"Record the promo video" = "录制宣传视频";
+"Ship v1.2" = "发布 v1.2";
+"Four colors, three shapes" = "四种颜色，三种比例";
+"Idea" = "灵感";
+"A clothesline for everything you have not finished yet" = "给所有还没做完的事，一根晾衣绳";
+"Weekend" = "周末";
+"Coffee by the window" = "窗边喝杯咖啡";
+"Bike along the coast" = "沿海边骑车";
+"Water the plants" = "给绿植浇水";
+"Hover and the cards make room" = "鼠标划过，卡片像扑克牌一样让开";
+"Tick off to-dos right on the line" = "在绳上直接勾选待办";
+"Click to take a card down and read it" = "单击取下，放大查看";
+"Tear it off. The text stays in SunMemo.md" = "撕下即归档，文字留在 SunMemo.md";
+"Push the pointer to the top edge to pull it down" = "鼠标碰到屏幕顶部，随时拉下来";
