@@ -16,7 +16,7 @@ final class SettingsWindowController {
         let view = SettingsView()
         let hosting = NSHostingView(rootView: view)
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 495),
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
@@ -34,6 +34,7 @@ final class SettingsWindowController {
 struct SettingsView: View {
     @ObservedObject var hotKeyManager = HotKeyManager.shared
     @ObservedObject var clipboardWatcher = ClipboardWatcher.shared
+    @ObservedObject var updateChecker = UpdateChecker.shared
     @State private var recordingTarget: RecordingTarget?
 
     enum RecordingTarget {
@@ -154,6 +155,56 @@ struct SettingsView: View {
                     }
                 }
                 .toggleStyle(.checkbox)
+            }
+            .padding(12)
+            .background(Color(NSColor.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+
+            // Software Updates Section
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("软件版本与自动更新")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Spacer()
+
+                    Text("v\(updateChecker.currentVersion)")
+                        .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2.5)
+                        .background(Color.black.opacity(0.06), in: Capsule())
+                }
+
+                HStack(alignment: .center) {
+                    Toggle("启动时自动检查新版本", isOn: Binding(
+                        get: { updateChecker.autoCheckEnabled },
+                        set: { updateChecker.autoCheckEnabled = $0 }
+                    ))
+                    .toggleStyle(.checkbox)
+                    .font(.system(size: 12))
+
+                    Spacer()
+
+                    Button {
+                        updateChecker.checkForUpdates(userInitiated: true)
+                    } label: {
+                        HStack(spacing: 5) {
+                            if updateChecker.isChecking {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Text(updateChecker.isChecking ? "检查中..." : "检查更新")
+                                .font(.system(size: 11.5, weight: .medium))
+                        }
+                    }
+                    .disabled(updateChecker.isChecking)
+                }
+
+                if !updateChecker.checkStatus.isEmpty {
+                    Text(updateChecker.checkStatus)
+                        .font(.system(size: 11))
+                        .foregroundStyle(updateChecker.availableUpdate != nil ? Color.orange : Color.secondary)
+                }
             }
             .padding(12)
             .background(Color(NSColor.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))

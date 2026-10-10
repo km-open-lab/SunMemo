@@ -6,13 +6,17 @@
 <p align="center">
   <img src="build/SunMemo.app/Contents/Resources/SunMemo.icns" width="128" height="128" alt="SunMemo App Icon">
   <br><br>
-  <strong>纯本地 · 离线隐私 · 极速流畅 · 专为 macOS 14+ 打造</strong>
+  <strong>纯本地 · 离线隐私 · 极速流畅 · 兼容 macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
-  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.0.0)</strong></a>
+  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.1.0)</strong></a>
   &nbsp;·&nbsp;
   <a href="#-快捷键与操作手势">快捷键一览</a>
   &nbsp;·&nbsp;
   <a href="#-源码编译-build-from-source">源码编译</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/demo_hero_clothesline.png" width="100%" alt="SunMemo Desktop Clothesline Banner">
 </p>
 
 ---
@@ -20,31 +24,44 @@
 ## 🌟 核心特色 (Features)
 
 ### ☀️ 1. 桌面顶部晾衣绳 (Top Clothesline)
-- 鼠标悬停屏幕顶部边缘或按快捷键 `⌃ ⌥ ␣`，晾衣绳如羽毛般丝滑滑下。
-- **动态自适应扇面叠放**：便签较少时自然舒展分布（间距 205pt）；便签增多时，卡片智能压缩间距（最低 45pt）并自然叠放，告别卡片溢出。
-- **悬停高亮聚焦**：光标划过任意卡片即刻 1.05x 微缩放并跃至最顶层渲染，看清每一个待办细节。
+- 鼠标滑向屏幕顶部边缘或按快捷键 `⌃ ⌥ ␣`，晾衣绳如羽毛般轻盈垂下。
+- **手拨扑克牌扇面让位**：光标划过便签时，目标卡片微步迈前，两侧卡片如掌中扑克牌般扇形推开侧倾，杜绝失真变形。
+- **动态自适应叠放**：卡片随风自然微动；便签增多时智能压缩步长，从容收纳数十条灵感与待办。
 
-### 📝 2. 便签速记与交互待办清单 (Interactive Todos & Notes)
-- 按 `⌃ ⌥ N` 随时呼出原生独立便签弹窗，不打断手头工作。
-- **完整 Markdown 工具栏**：支持一键插入 `☑️ 待办清单`、`B 粗体`、`• 无序列表`、`H 标题`，支持 `编辑 / MD 预览` 双模式实时切换。
-- **绳上直接打勾**：无需点开编辑，直接在悬挂卡片上点击 `- [ ]` 待办复选框，即刻打勾并实时统计完成进度。
-- **多色卡片主题**：支持暖阳黄、薄荷绿、樱花粉、晴空蓝四种清爽便签色彩。
+### 📝 2. 便签速记、多比例自适应与 Markdown 工具栏
+<p align="center">
+  <img src="docs/images/demo_quick_memo.png" width="560" alt="SunMemo QuickMemo Editor Modal">
+</p>
 
-### 📸 3. 截图与剪贴板接管 (Screenshots & Clipboard)
+- 按 `⌃ ⌥ N` 随时呼出原生独立速记窗口，不打断手头工作。
+- **三种黄金比例自由切换**：支持宽版（`16:10`）、方版（`1:1`）、竖版（`3:4`）三种尺寸药丸，适配从横向代码、灵感短句到纵向步骤清单等多元场景。
+- **完整 Markdown 工具栏**：支持一键插入 `☑️ 待办清单`、`B 粗体`、`• 无序列表`、`H 标题`，提供 `编辑 / MD 预览` 双模式实时渲染。
+- **绳上直接打勾**：无需点开编辑，悬挂状态下即可点击 `- [ ]` 待办复选框打勾，实时同步进度条。
+- **多色卡片主题**：支持暖阳黄、薄荷绿、樱花粉、晴空蓝四种清爽色彩。
+
+### 🔍 3. 单击放大沉浸查看与 1.3pt 悬链拉绳 (Hero Preview)
+<p align="center">
+  <img src="docs/images/demo_preview_tether.png" width="800" alt="SunMemo Hero Preview with Tether">
+</p>
+
+- **物理松弛感拉绳牵引**：单击绳上卡片即可取下放大居中查看；晾衣绳在上方稳稳常驻，1.3pt 亚麻灰高光双色悬链曲线（Catenary Bezier）如同一根轻柔的伸缩拉绳，连接着顶端的木夹与下方的金属扣环。
+- **沉浸交互与快捷动作**：大图完整支持 Markdown 样式渲染与待办打勾，提供一键切换比例、`📋 复制全文`、`🗑 撕下归档`、`✎ 双击编辑` 等完备操作，按 `Esc` 或点击空白处平滑收起。
+
+### 📸 4. 截图与剪贴板接管 (Screenshots & Clipboard)
 - 截屏或复制图片/文字后，按 `⌃ ⌥ V` 即可瞬间挂上晾衣绳。
-- 可选接管 macOS 截图保存位置，截图瞬间自动上绳，桌面彻底告别杂乱文件堆积。
+- 截图卡片支持单击放大查看、双击一键复制，长按即可开启 macOS 原生 Markup 画笔标注。
 
-### 💾 4. 本地实时 Markdown 同步与防丢归档 (Dual Markdown Persistence)
+### 💾 5. 本地实时 Markdown 同步与防丢归档 (Dual Markdown Persistence)
 - **永远不怕数据丢失**：所有在绳便签实时双向同步至用户文稿目录 `~/Documents/SunMemo.md`。
-- **撕下便签带时间戳归档**：点击卡片右上角撕下便签后，绝不从文档物理抹去，而是自动沉淀至 `# 📦 历史已撕下便签归档`，精确记录创建时间与撕下时间戳。
+- **撕下便签带时间戳归档**：点击卡片撕下后自动沉淀至 `# 📦 历史已撕下便签归档`，精确记录创建时间与撕下时间戳。
 - 与 **Obsidian、Typora、VS Code、macOS 备忘录** 无缝配合，随时检索回顾。
 
-### ⚙️ 5. 自定义全局快捷键与防误触 (Preferences & Shortcuts)
-- 专属偏好设置面板，支持在界面中按下任意组合键，一键自定义录制全局快捷键。
-- 支持剪贴板自动挂绳防误触开关，避免误把普通图片或隐私内容挂上绳。
+### 🔄 6. 自动更新检测与设置管理 (Auto-Update & Preferences)
+- 内置 GitHub Releases 自动版本检查，新版本发布时在菜单栏友好提示，一键跳转更新。
+- 专属偏好设置面板，支持自定义录制全局快捷键与开关剪贴板自动挂绳。
 
-### 🛡️ 6. 纯本地安全与隐私保护 (100% Offline & Private)
-- **0 网络权限**、**0 用户跟踪**、**0 账号体系**。
+### 🛡️ 7. 纯本地安全与隐私保护 (100% Offline & Private)
+- **0 网络追踪**、**0 账号体系**、**0 第三方 SDK**。
 - 所有文字、截图与配置文件 100% 留存在你的 Mac 本机。
 
 ---

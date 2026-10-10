@@ -89,10 +89,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 forName: NSNotification.Name(notifName),
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
+            ) { [weak self] notif in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    QuickMemoWindowController.shared.show(line: self.line)
+                    var targetID: UUID? = nil
+                    if let idStr = notif.userInfo?["id"] as? String, let uid = UUID(uuidString: idStr) {
+                        targetID = uid
+                    } else if let idx = notif.userInfo?["index"] as? Int, idx >= 0 && idx < self.line.items.count {
+                        targetID = self.line.items[idx].id
+                    }
+                    QuickMemoWindowController.shared.show(line: self.line, editingMemoID: targetID)
                 }
             }
         }
@@ -118,6 +124,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 MainActor.assumeIsolated {
                     self?.offerInbox()
                 }
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.sunmemo.pinLine"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.keepOpen = true
+                self.wanted = true
+                self.pinned = true
+                self.panel.placeOnScreen(NSScreen.screens.first)
+                self.updateCapacity()
+                self.refresh()
+                self.reveal(pinned: true, peekFor: 300)
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.sunmemo.hoverIndex"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notif in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let idx = notif.userInfo?["index"] as? Int ?? -1
+                if idx >= 0 && idx < self.line.items.count {
+                    self.line.hoveredID = self.line.items[idx].id
+                } else {
+                    self.line.hoveredID = nil
+                }
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.sunmemo.showPreviewIndex"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notif in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let idx = notif.userInfo?["index"] as? Int ?? 1
+                if idx >= 0 && idx < self.line.items.count {
+                    MemoPreviewWindowController.shared.show(line: self.line, itemID: self.line.items[idx].id)
+                }
+            }
+        }
+
+        DistributedNotificationCenter.default().addObserver(
+            forName: NSNotification.Name("com.sunmemo.hidePreview"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated {
+                MemoPreviewWindowController.shared.close()
             }
         }
 
@@ -230,6 +293,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.refresh()
             }
         }
+
+        UpdateChecker.shared.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -703,6 +768,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
+        // 发现新版本时置顶醒目显示
+        if let update = UpdateChecker.shared.availableUpdate {
+            let updateItem = ClosureMenuItem("✨ 发现新版本 v\(update.version) (点击更新)") {
+                UpdateChecker.shared.showUpdateAlert(for: update)
+            }
+            menu.addItem(updateItem)
+            menu.addItem(.separator())
+        }
+
         let toggleItem = ClosureMenuItem(isRevealed ? L("Hide line") : L("Show line")) { [weak self] in
             self?.toggle()
         }
@@ -733,6 +807,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // 更多选项 (Submenu: 清爽折叠次要项)
         let moreMenu = NSMenu(title: "更多选项")
+
+        moreMenu.addItem(ClosureMenuItem("🔄 检查更新...") {
+            UpdateChecker.shared.checkForUpdates(userInitiated: true)
+        })
 
         moreMenu.addItem(ClosureMenuItem("📄 打开本地备份 (SunMemo.md)") {
             MemoSyncManager.shared.openInEditor()

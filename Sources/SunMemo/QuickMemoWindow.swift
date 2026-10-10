@@ -68,10 +68,14 @@ final class QuickMemoWindowController {
         win.isMovableByWindowBackground = true
         win.isFloatingPanel = true
         win.level = .floating
-        win.hasShadow = true
         win.backgroundColor = .clear
         win.contentView = hosting
-        win.center()
+        if let screen = NSScreen.screens.first {
+            let visible = screen.visibleFrame
+            win.setFrameOrigin(CGPoint(x: visible.midX - initialSize.width / 2, y: visible.midY - initialSize.height / 2))
+        } else {
+            win.center()
+        }
         win.isReleasedWhenClosed = false
         self.window = win
 

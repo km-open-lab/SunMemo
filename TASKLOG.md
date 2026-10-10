@@ -1,6 +1,30 @@
 # 项目进度记录
 
-## 2026-10-10 16:59 CST — 拓展支持 macOS Ventura 13.0+（含 13.5.2）系统兼容
+## 2026-10-10 17:35 CST — 演示数据注入、高清实机截图与 GitHub 仓库展示上架
+
+- 用户原话或需求摘要：「GitHub仓库里需要增加截图演示 你注入一些数据并截图我看看 确认后放进去」「第二张不要 其他的放进去」。
+- 完成内容与技术实现：
+  1. 真实数据注入：编写 `scripts/inject-demo-data.swift`，注入落日雪山拍立得照片卡片、宽版（16:10）发布准备便签、方版（1:1）灵感闪念便签、竖版（3:4）周末清单便签，贴合真实高品质使用场景。
+  2. 自动化实机截图与评审：在纯净桌面壁纸环境下捕获 4 张高分辨率实操截图；向用户展示后，按指令剔除第 2 张，保留其余 3 张核心场景：
+     - `docs/images/demo_hero_clothesline.png`：顶部晾衣绳全景常驻形态与多比例卡片阵列。
+     - `docs/images/demo_preview_tether.png`：单击放大查看、1.3pt 亚麻灰高光悬链双色拉绳与 Hero 卡片交互。
+     - `docs/images/demo_quick_memo.png`：沉浸式便签编辑器、Markdown 快捷工具栏与三种比例切换药丸。
+  3. README.md 图文排版整合：更新下载链接至 `v1.1.0`（标明兼容 macOS 13+），将全景 Banner 嵌入顶部，并在各特色小节中图文并茂展示 Hero 预览与编辑器。
+- 验证结果：用户显式检阅并确认「第二张不要 其他的放进去」；三张高清截图落盘并排版至 README。
+- 生产 / 发布边界：更新 `README.md`，新增 `docs/images/demo_*.png`，更新 `TASKLOG.md`。
+- 涉及文件：`scripts/inject-demo-data.swift`、`docs/images/demo_hero_clothesline.png`、`docs/images/demo_preview_tether.png`、`docs/images/demo_quick_memo.png`、`README.md`、`TASKLOG.md`。
+
+## 2026-10-10 17:05 CST — 自动更新检测系统（UpdateChecker）与 GitHub Releases 联动
+
+- 用户原话或需求摘要：「曾不能增加一个自动更新的 不然呀呼安装后不知道又更新」。
+- 完成内容与技术实现：
+  1. 自动化版本感知：实现 `UpdateChecker.swift`，周期性（每 24 小时及启动时）异步请求 GitHub Releases API（`https://api.github.com/repos/km-open-lab/SunMemo/releases/latest`）。
+  2. 语义化版本比对与防打扰：采用 SemVer 对比当前运行版本与远端 tag，支持「跳过此版本」记忆；发现新版本时在状态栏菜单顶部高亮显示更新横幅与下载跳转。
+  3. 偏好设置交互：在设置窗口增加「启动时自动检查更新」开关及「立即检查更新」按钮，弹窗引导用户一键直达 GitHub Release 下载页面。
+- 验证结果：接口解析正常；菜单栏与设置面板更新交互响应平稳。
+- 生产 / 发布边界：Git 提交并合入 `main`。
+- 涉及文件：`Sources/SunMemo/UpdateChecker.swift`、`Sources/SunMemo/AppDelegate.swift`、`Sources/SunMemo/SettingsWindow.swift`、`TASKLOG.md`。
+
 
 - 用户原话或需求摘要：「这个系统的用户用不了 吗」（上传 macOS Ventura 13.5.2 系统版本截图）。
 - 完成内容与技术实现：
