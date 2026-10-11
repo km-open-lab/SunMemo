@@ -7,41 +7,64 @@ final class MemoPreviewWindowController {
     private var panel: NSPanel?
     private var keyMonitor: Any?
     private weak var currentLine: Line?
+    private var currentItemID: UUID?
+    private var dismissAction: ((@escaping () -> Void) -> Void)?
+    private var isClosing = false
+    /// Completions asked for while a dismissal was already running.
+    private var pendingCompletions: [() -> Void] = []
+    /// Bumped by every show, so a late completion from an older preview is ignored.
+    private var session = 0
 
     var isOpen: Bool { panel != nil }
+    var isEditingActive: Bool = false
+    var triggerInPlaceEdit: (() -> Void)?
+    var cancelEditing: (() -> Void)?
 
-    func show(line: Line, itemID: UUID) {
+    func show(line: Line, itemID: UUID, startEditing: Bool = false) {
+        closeImmediate()
+        pendingCompletions = []
+        session += 1
         self.currentLine = line
-        close()
+        self.currentItemID = itemID
+        self.isEditingActive = startEditing
 
         guard let item = line.items.first(where: { $0.id == itemID && !$0.falling }) else { return }
 
-        let screen = LinePanel.screenUnderPointer() ?? NSScreen.main ?? NSScreen.screens.first!
-        let originFrame = AppDelegate.shared?.cardFrame(for: itemID)
+        let originProvider: () -> CGRect? = { AppDelegate.shared?.cardFrame(for: itemID) }
+        // The preview covers the screen the card hangs on.
+        let screen = originProvider().flatMap { origin in
+            NSScreen.screens.first { $0.frame.contains(CGPoint(x: origin.midX, y: origin.midY)) }
+        } ?? LinePanel.screenUnderPointer() ?? NSScreen.main ?? NSScreen.screens.first!
 
         let previewView = HeroPreviewHostView(
             line: line,
             itemID: itemID,
-            originFrame: originFrame,
             screen: screen,
+            startEditing: startEditing,
+            originProvider: originProvider,
             onClose: { [weak self] in
-                self?.close()
+                self?.dismiss(animated: true)
+            },
+            onRegisterDismiss: { [weak self] action in
+                self?.dismissAction = action
             },
             onEditMemo: { [weak self] in
-                self?.close()
-                QuickMemoWindowController.shared.show(line: line, editingMemoID: itemID)
+                self?.triggerInPlaceEdit?()
             },
             onMarkupImage: { [weak self] in
-                self?.close()
-                line.markup(itemID)
+                self?.dismiss(animated: true) { [weak self] in
+                    self?.currentLine?.markup(itemID)
+                }
             },
             onDiscard: { [weak self] in
-                self?.close()
-                line.discard(itemID)
+                self?.dismiss(animated: true) { [weak self] in
+                    self?.currentLine?.discard(itemID)
+                }
             },
             onTrash: { [weak self] in
-                self?.close()
-                line.trash(itemID)
+                self?.dismiss(animated: true) { [weak self] in
+                    self?.currentLine?.trash(itemID)
+                }
             }
         )
 
@@ -62,17 +85,30 @@ final class MemoPreviewWindowController {
 
         self.panel = win
         win.makeKeyAndOrderFront(nil)
+        // The preview draws the card as it hangs before the real one is hidden, so the swap is invisible.
+        hosting.layoutSubtreeIfNeeded()
+        win.displayIfNeeded()
+        // Under Reduce Motion the preview fades in over the line card, which is hidden once it is up.
+        if !Motion.shouldReduceMotion {
+            line.previewingID = itemID
+        }
 
-        // Keyboard handler for Esc, Space, and Enter
+        // Keyboard handler for Esc, Space, and Enter: all close routes follow animated dismissal
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.panel != nil else { return event }
+            if self.isEditingActive {
+                if event.keyCode == 53 /* Esc */ {
+                    self.cancelEditing?()
+                    return nil
+                }
+                return event
+            }
             if event.keyCode == 53 /* Esc */ || event.keyCode == 49 /* Space */ {
-                self.close()
+                self.dismiss(animated: true)
                 return nil
             } else if event.keyCode == 36 /* Enter */ {
                 if item.isMemo {
-                    self.close()
-                    QuickMemoWindowController.shared.show(line: line, editingMemoID: itemID)
+                    self.triggerInPlaceEdit?()
                     return nil
                 }
             } else if event.keyCode == 8 /* C */ && event.modifierFlags.contains(.command) {
@@ -83,31 +119,416 @@ final class MemoPreviewWindowController {
         }
     }
 
+    /// Unified animated dismissal: the card flies back along the same path it came out on,
+    /// and the preview closes only once it has landed on the line, then the card wobbles.
+    func dismiss(animated: Bool = true, completion: (() -> Void)? = nil) {
+        guard panel != nil else {
+            completion?()
+            return
+        }
+        if let completion { pendingCompletions.append(completion) }
+        guard !isClosing else { return }
+
+        let ticket = session
+        let finish: () -> Void = { [weak self] in
+            guard let self, self.session == ticket, self.panel != nil else { return }
+            let itemID = self.currentItemID
+            let line = self.currentLine
+            // The card is back on the line (and visible again) before it wobbles.
+            line?.previewingID = nil
+            // Give the line one frame to show its card under the preview, which looks the same.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                guard let self, self.session == ticket, self.panel != nil else { return }
+                let done = self.pendingCompletions
+                self.pendingCompletions = []
+                self.closeImmediate()
+                if let itemID { line?.wobble(itemID) }
+                done.forEach { $0() }
+            }
+        }
+
+        if animated, let dismissAction {
+            isClosing = true
+            dismissAction(finish)
+        } else {
+            finish()
+        }
+    }
+
     func close() {
+        dismiss(animated: true)
+    }
+
+    /// Every exit path ends here: the panel goes away and the card on the line is shown again.
+    private func closeImmediate() {
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
         }
+        currentLine?.previewingID = nil
         panel?.orderOut(nil)
         panel = nil
+        dismissAction = nil
+        isClosing = false
     }
 }
 
-// MARK: - Hero Preview Container View (带弹性伸缩牵引线 + 宽屏拟物大卡片)
+// MARK: - Hero Geometry (卡片飞行的唯一几何来源)
+
+/// Everything about the card's flight, derived from one `progress`. 0 is the card exactly as
+/// it hangs on the line (tilted about its clothespin), 1 is the expanded preview. The card,
+/// the pin riding on it, the eyelet ring and the cord's end all come from here, so the cord
+/// stays tied on at every frame, spring overshoot and interruptions included.
+/// Coordinates are the preview panel's view coordinates (origin top left, y down).
+struct HeroGeometry {
+    /// The card as it hangs on the line, hover lift included, before its tilt.
+    var lineFrame: CGRect
+    /// Top centre of the clothespin on the rope: the card tilts about this point.
+    var pinTop: CGPoint
+    /// The card's tilt on the line, in degrees.
+    var tilt: Double
+    /// Where the expanded card is centred.
+    var center: CGPoint
+    /// False under Reduce Motion: the card stays at its final place and only fades.
+    var flies: Bool
+
+    /// The cord is tied on near the lower end of the line pin, along its axis.
+    static let jawOffset: CGFloat = 24
+    /// Top of the pin that rides on the expanded card, and the eyelet ring above it, from the card's top edge.
+    static let restPinTop: CGFloat = -19
+    static let restRing: CGFloat = -24.5
+
+    /// How far the pin top sits above the card's top edge on the line.
+    var pinLead: CGFloat { lineFrame.minY - pinTop.y }
+
+    private func lerp(_ a: CGFloat, _ b: CGFloat, _ t: Double) -> CGFloat { a + (b - a) * CGFloat(t) }
+
+    func frame(_ p: Double, previewSize: CGSize) -> CGRect {
+        let end = CGRect(x: center.x - previewSize.width / 2, y: center.y - previewSize.height / 2,
+                         width: previewSize.width, height: previewSize.height)
+        guard flies else { return end }
+        let w = max(1, lerp(lineFrame.width, previewSize.width, p))
+        let h = max(1, lerp(lineFrame.height, previewSize.height, p))
+        let cx = lerp(lineFrame.midX, center.x, p)
+        let cy = lerp(lineFrame.midY, center.y, p)
+        return CGRect(x: cx - w / 2, y: cy - h / 2, width: w, height: h)
+    }
+
+    /// Radians; the tilt unwinds as the card comes down.
+    func angle(_ p: Double) -> CGFloat {
+        flies ? CGFloat(tilt * (1 - p)) * .pi / 180 : 0
+    }
+
+    /// The card turns about a point above its top edge: the pin top on the line, the card's top at rest.
+    func pivot(_ frame: CGRect, _ p: Double) -> CGPoint {
+        CGPoint(x: frame.midX, y: frame.minY - pinLead * CGFloat(1 - p))
+    }
+
+    private func rotated(_ point: CGPoint, about pivot: CGPoint, by angle: CGFloat) -> CGPoint {
+        let dx = point.x - pivot.x, dy = point.y - pivot.y
+        return CGPoint(x: pivot.x + dx * cos(angle) - dy * sin(angle),
+                       y: pivot.y + dx * sin(angle) + dy * cos(angle))
+    }
+
+    /// Maps a point given relative to the card (dx from its centre line, dy from its top edge,
+    /// in points) through the card's exact transform.
+    func cardPoint(dx: CGFloat = 0, dy: CGFloat, _ p: Double, previewSize: CGSize) -> CGPoint {
+        let f = frame(p, previewSize: previewSize)
+        return rotated(CGPoint(x: f.midX + dx, y: f.minY + dy), about: pivot(f, p), by: angle(p))
+    }
+
+    /// Where the cord starts: the jaw of the pin on the rope.
+    var jaw: CGPoint {
+        rotated(CGPoint(x: pinTop.x, y: pinTop.y + Self.jawOffset), about: pinTop, by: CGFloat(tilt) * .pi / 180)
+    }
+
+    /// The ring starts at the jaw, so the cord has no length on the line, and climbs to the pin top.
+    private func climb(_ p: Double) -> Double {
+        flies ? Motion.smoothstep(0, 0.55, p) : 1
+    }
+
+    func pinTopDY(_ p: Double) -> CGFloat { lerp(-pinLead, Self.restPinTop, climb(p)) }
+    func ringDY(_ p: Double) -> CGFloat { lerp(Self.jawOffset - pinLead, Self.restRing, climb(p)) }
+
+    /// Card-local content (laid out at its own size) to view coordinates:
+    /// stretch to the current frame, then turn about the pivot.
+    func cardTransform(_ p: Double, previewSize: CGSize, contentSize: CGSize) -> CGAffineTransform {
+        let f = frame(p, previewSize: previewSize)
+        let sx = contentSize.width > 0 ? f.width / contentSize.width : 1
+        let sy = contentSize.height > 0 ? f.height / contentSize.height : 1
+        let pv = pivot(f, p)
+        return CGAffineTransform(scaleX: sx, y: sy)
+            .concatenating(CGAffineTransform(translationX: f.minX, y: f.minY))
+            .concatenating(CGAffineTransform(translationX: -pv.x, y: -pv.y))
+            .concatenating(CGAffineTransform(rotationAngle: angle(p)))
+            .concatenating(CGAffineTransform(translationX: pv.x, y: pv.y))
+    }
+
+    /// Card-local content (laid out with center at geo.center) to relative view coordinates:
+    /// At progress 1, this evaluates to identity, ensuring SwiftUI hit-testing works natively.
+    func cardRelativeTransform(_ p: Double, previewSize: CGSize, contentSize: CGSize) -> CGAffineTransform {
+        let absT = cardTransform(p, previewSize: previewSize, contentSize: contentSize)
+        let restX = center.x - previewSize.width / 2
+        let restY = center.y - previewSize.height / 2
+        return absT.concatenating(CGAffineTransform(translationX: -restX, y: -restY))
+    }
+}
+
+/// Where the card hangs right now, in view coordinates.
+struct HeroPlacement {
+    var frame: CGRect
+    var pinTop: CGPoint
+    var lifted: Bool
+}
+
+private struct HeroCardEffect: GeometryEffect {
+    var progress: Double
+    var previewW: CGFloat
+    var previewH: CGFloat
+    let geo: HeroGeometry
+
+    var animatableData: AnimatablePair<Double, AnimatablePair<CGFloat, CGFloat>> {
+        get { AnimatablePair(progress, AnimatablePair(previewW, previewH)) }
+        set {
+            progress = newValue.first
+            previewW = newValue.second.first
+            previewH = newValue.second.second
+        }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(geo.cardRelativeTransform(progress, previewSize: CGSize(width: previewW, height: previewH),
+                                                      contentSize: size))
+    }
+}
+
+/// Fades its content over a window of the shared progress.
+private struct HeroFade: ViewModifier, Animatable {
+    var progress: Double
+    let from: Double
+    let to: Double
+    var inverted = false
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        let t = Motion.smoothstep(from, to, progress)
+        content.opacity(inverted ? 1 - t : t)
+    }
+}
+
+private struct HeroBackdrop: View, Animatable {
+    var progress: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    var body: some View {
+        Color.black.opacity(0.35 * min(max(progress, 0), 1))
+            .ignoresSafeArea()
+            .contentShape(Rectangle())
+    }
+}
+
+/// The card as it looks hanging on the line, drawn at its own size and stretched to the
+/// preview's frame; the preview face crossfades in over it.
+private struct HeroLineFace: View {
+    let item: Pegged
+    let lifted: Bool
+    let target: CGSize
+
+    private var natural: CGSize { PeggedView.lineCardSize(for: item) }
+
+    var body: some View {
+        face
+            .frame(width: natural.width, height: natural.height)
+            .scaleEffect(x: target.width / max(natural.width, 1), y: target.height / max(natural.height, 1),
+                         anchor: .topLeading)
+            .frame(width: target.width, height: target.height, alignment: .topLeading)
+    }
+
+    @ViewBuilder private var face: some View {
+        if item.isMemo {
+            MemoCardSnapshotView(text: item.memoText, color: item.memoColor, isDone: item.isDone,
+                                 aspectRatio: item.aspectRatio, createdAt: item.createdAt)
+                .padding(Frame.inset)
+                .glassFrame(cornerRadius: Frame.radius)
+                .shadow(color: .black.opacity(lifted ? 0.26 : 0.18), radius: lifted ? 14 : 10, y: lifted ? 8 : 5)
+                .opacity(item.isDone ? 0.82 : 1)
+        } else {
+            let photo = PeggedView.photoSize(for: item.thumb.size)
+            Image(nsImage: item.thumb)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: photo.width, height: photo.height)
+                .clipShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5)
+                )
+                .padding(Frame.inset)
+                .glassFrame(cornerRadius: Frame.radius)
+                .shadow(color: .black.opacity(lifted ? 0.26 : 0.18), radius: lifted ? 14 : 10, y: lifted ? 8 : 5)
+        }
+    }
+}
+
+// MARK: - Tether (拉绳、夹子与吊环，全部由 HeroGeometry 推出)
+
+/// A rope that sags a little under its own weight, like the clothesline's.
+private struct HeroCordShape: Shape {
+    let start: CGPoint
+    let end: CGPoint
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let d = hypot(end.x - start.x, end.y - start.y)
+        guard d > 0.5 else { return path }
+        let sag = min(16, 0.05 * d)
+        path.move(to: start)
+        path.addQuadCurve(to: end, control: CGPoint(x: (start.x + end.x) / 2,
+                                                    y: (start.y + end.y) / 2 + 2 * sag))
+        return path
+    }
+}
+
+/// Draws the clothespin on the rope, the cord, and the pin and ring riding on the card.
+private struct HeroTetherLayer: View, Animatable {
+    var progress: Double
+    var previewW: CGFloat
+    var previewH: CGFloat
+    let geo: HeroGeometry
+
+    var animatableData: AnimatablePair<Double, AnimatablePair<CGFloat, CGFloat>> {
+        get { AnimatablePair(progress, AnimatablePair(previewW, previewH)) }
+        set {
+            progress = newValue.first
+            previewW = newValue.second.first
+            previewH = newValue.second.second
+        }
+    }
+
+    var body: some View {
+        let size = CGSize(width: previewW, height: previewH)
+        let p = progress
+        let degrees = geo.flies ? geo.tilt * (1 - p) : 0
+        let pinPoint = geo.cardPoint(dy: geo.pinTopDY(p), p, previewSize: size)
+        let ring = geo.cardPoint(dy: geo.ringDY(p), p, previewSize: size)
+        let jaw = geo.jaw
+        let length = Double(hypot(ring.x - jaw.x, ring.y - jaw.y))
+        // Nothing pokes out of the pin while the card is still on the line.
+        let cordAlpha = geo.flies ? Motion.smoothstep(2, 6, length) : 0
+        let pegAlpha = geo.flies ? Motion.smoothstep(0, 0.15, p) : min(max(p, 0), 1)
+        let cord = HeroCordShape(start: jaw, end: ring)
+        let round = StrokeStyle(lineWidth: 1.2, lineCap: .round)
+
+        ZStack(alignment: .topLeading) {
+            // The pin that holds the card, riding on it.
+            Clothespin()
+                .rotationEffect(.degrees(degrees), anchor: .top)
+                .offset(x: pinPoint.x - 4.5, y: pinPoint.y)
+                .opacity(pegAlpha)
+
+            if geo.flies {
+                // Same material as the clothesline's rope.
+                ZStack {
+                    cord.stroke(Color.black.opacity(0.22), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+                        .offset(y: 1.2).blur(radius: 1.2)
+                    cord.stroke(Color(white: 0.55), style: round)
+                    cord.stroke(Color.white.opacity(0.45), style: StrokeStyle(lineWidth: 0.4, lineCap: .round))
+                        .offset(y: -0.35)
+                }
+                .opacity(cordAlpha)
+            }
+
+            // Eyelet ring, drawn over the end of the cord so it reads as threaded through.
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.85), Color.gray.opacity(0.65)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.2
+                )
+                .frame(width: 7, height: 7)
+                .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+                .offset(x: ring.x - 3.5, y: ring.y - 3.5)
+                .opacity(pegAlpha)
+
+            if geo.flies {
+                // The line's own pin, redrawn exactly over it so it stays bright under the backdrop.
+                Clothespin(shadowed: false)
+                    .rotationEffect(.degrees(geo.tilt), anchor: .top)
+                    .offset(x: geo.pinTop.x - 4.5, y: geo.pinTop.y)
+
+                // Knot where the cord is tied to the pin.
+                Circle()
+                    .fill(Color(white: 0.46))
+                    .overlay(Circle().fill(Color.white.opacity(0.35)).frame(width: 1, height: 1).offset(x: -0.4, y: -0.4))
+                    .frame(width: 2.4, height: 2.4)
+                    .offset(x: jaw.x - 1.2, y: jaw.y - 1.2)
+                    .opacity(cordAlpha)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Hero Preview Container View (卡片从绳上飞到屏幕中央，绳子始终系在夹子上)
 
 struct HeroPreviewHostView: View {
     @ObservedObject var line: Line
     let itemID: UUID
-    let originFrame: CGRect?
     let screen: NSScreen
+    let originProvider: () -> CGRect?
     let onClose: () -> Void
+    let onRegisterDismiss: (@escaping (@escaping () -> Void) -> Void) -> Void
     let onEditMemo: () -> Void
     let onMarkupImage: () -> Void
     let onDiscard: () -> Void
     let onTrash: () -> Void
+    let startEditing: Bool
 
-    @State private var isExpanded: Bool = false
+    /// 0 = the card as it hangs on the line, 1 = the expanded preview. The only animated value.
+    @State private var progress: Double = 0
+    @State private var placement: HeroPlacement
+    @State private var flies: Bool
+    @State private var closing = false
     @State private var copied: Bool = false
+    @State private var isEditingMemo: Bool
+
+    @MainActor
+    init(line: Line, itemID: UUID, screen: NSScreen,
+         startEditing: Bool = false,
+         originProvider: @escaping () -> CGRect?,
+         onClose: @escaping () -> Void,
+         onRegisterDismiss: @escaping (@escaping (@escaping () -> Void) -> Void) -> Void,
+         onEditMemo: @escaping () -> Void,
+         onMarkupImage: @escaping () -> Void,
+         onDiscard: @escaping () -> Void,
+         onTrash: @escaping () -> Void) {
+        self.line = line
+        self.itemID = itemID
+        self.screen = screen
+        self.startEditing = startEditing
+        self.originProvider = originProvider
+        self.onClose = onClose
+        self.onRegisterDismiss = onRegisterDismiss
+        self.onEditMemo = onEditMemo
+        self.onMarkupImage = onMarkupImage
+        self.onDiscard = onDiscard
+        self.onTrash = onTrash
+        _placement = State(initialValue: Self.placement(line: line, itemID: itemID, screen: screen,
+                                                        origin: originProvider()))
+        _flies = State(initialValue: !Motion.shouldReduceMotion)
+        _isEditingMemo = State(initialValue: startEditing)
+    }
 
     private var item: Pegged? {
         line.items.first(where: { $0.id == itemID && !$0.falling })
@@ -135,126 +556,181 @@ struct HeroPreviewHostView: View {
         }
     }
 
-    private var ropePegPoint: CGPoint {
-        guard let origin = originFrame else {
-            return CGPoint(x: 0, y: -screen.frame.height / 2 + 30)
+    private var geo: HeroGeometry {
+        HeroGeometry(lineFrame: placement.frame,
+                     pinTop: placement.pinTop,
+                     tilt: item?.tilt ?? 0,
+                     center: CGPoint(x: screen.frame.width / 2, y: screen.frame.height / 2 - 8),
+                     flies: flies)
+    }
+
+    /// Where the card hangs now, from the line's own layout (global, y up) into this panel's
+    /// view coordinates, with the hover lift: the card is scaled about its clothespin.
+    @MainActor
+    private static func placement(line: Line, itemID: UUID, screen: NSScreen, origin: CGRect?) -> HeroPlacement {
+        let item = line.items.first(where: { $0.id == itemID })
+        let size = item.map(PeggedView.lineCardSize(for:)) ?? CGSize(width: 150, height: 100)
+        let lifted = line.hoveredID == itemID && !Motion.shouldReduceMotion
+        let s = lifted ? Motion.hoverLift : 1
+        let pinTop: CGPoint
+        if let origin {
+            pinTop = CGPoint(x: origin.midX - screen.frame.minX,
+                             y: screen.frame.maxY - origin.maxY - PeggedView.cardOffsetBelowTop)
+        } else {
+            pinTop = CGPoint(x: screen.frame.width / 2, y: 30)
         }
-        let px = origin.midX - screen.frame.midX
-        let py = -(origin.maxY - screen.frame.midY) + 12
-        return CGPoint(x: px, y: py)
-    }
-
-    private var cardClipPoint: CGPoint {
-        CGPoint(x: 0, y: -cardSize.height / 2 - 20)
-    }
-
-    private var deltaOffset: CGSize {
-        guard let origin = originFrame else {
-            return CGSize(width: 0, height: -screen.frame.height * 0.42)
-        }
-        let dx = origin.midX - screen.frame.midX
-        let dy = -(origin.midY - screen.frame.midY)
-        return CGSize(width: dx, height: dy)
-    }
-
-    private var initialScale: CGFloat {
-        guard let origin = originFrame, origin.width > 0 else { return 0.52 }
-        return max(0.40, min(0.68, origin.width / cardSize.width))
-    }
-
-    private var initialTilt: Double {
-        item?.tilt ?? 0
+        let frame = CGRect(x: pinTop.x - size.width * s / 2,
+                           y: pinTop.y + PeggedView.cardOffsetBelowTop * s,
+                           width: size.width * s, height: size.height * s)
+        return HeroPlacement(frame: frame, pinTop: pinTop, lifted: lifted)
     }
 
     var body: some View {
-        ZStack {
-            // Soft translucent backdrop blur (clicking outside closes preview)
-            Color.black.opacity(isExpanded ? 0.35 : 0)
-                .ignoresSafeArea()
+        ZStack(alignment: .topLeading) {
+            // Soft translucent backdrop (clicking outside closes preview)
+            HeroBackdrop(progress: progress)
                 .onTapGesture {
-                    dismissWithAnimation()
+                    if isEditingMemo {
+                        withAnimation(Motion.snappy) {
+                            isEditingMemo = false
+                        }
+                    } else {
+                        dismissWithAnimation()
+                    }
                 }
 
             if let item {
-                // MARK: Elastic Tether Cord (精致、轻盈、松弛的悬挂牵引拉绳)
-                elasticCordView
+                heroCard(item)
+                    .position(geo.center)
 
-                // MARK: The Main Card
-                VStack(spacing: -12) {
-                    // Refined suspension clip with metallic eyelet ring
-                    SuspensionPeg()
-                        .zIndex(2)
-
-                    if item.isMemo {
-                        previewMemoCard(item)
-                            .zIndex(1)
-                    } else {
-                        photoPreviewCard(item)
-                            .zIndex(1)
-                    }
-                }
-                .rotationEffect(.degrees(isExpanded ? 0 : initialTilt), anchor: .top)
-                .scaleEffect(isExpanded ? 1.0 : initialScale, anchor: .top)
-                .offset(x: isExpanded ? 0 : deltaOffset.width,
-                        y: isExpanded ? 0 : deltaOffset.height)
-                .opacity(isExpanded ? 1.0 : 0.0)
-                .animation(.spring(response: 0.38, dampingFraction: 0.74), value: isExpanded)
+                HeroTetherLayer(progress: progress, previewW: cardSize.width, previewH: cardSize.height, geo: geo)
+                    .allowsHitTesting(false)
             }
         }
+        .frame(width: screen.frame.width, height: screen.frame.height, alignment: .topLeading)
+        .ignoresSafeArea()
         .onAppear {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.74)) {
-                isExpanded = true
+            MemoPreviewWindowController.shared.isEditingActive = isEditingMemo
+            MemoPreviewWindowController.shared.triggerInPlaceEdit = {
+                withAnimation(Motion.snappy) {
+                    isEditingMemo = true
+                }
             }
+            MemoPreviewWindowController.shared.cancelEditing = {
+                withAnimation(Motion.snappy) {
+                    isEditingMemo = false
+                }
+            }
+
+            onRegisterDismiss { completion in
+                animateOut(completion)
+            }
+            if flies {
+                withAnimation(Motion.heroOpen) {
+                    progress = 1
+                }
+            } else {
+                withAnimation(Motion.heroFade) {
+                    progress = 1
+                }
+                // Once the preview is fully up the card underneath can go.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    if !closing { line.previewingID = itemID }
+                }
+            }
+        }
+        .onChange(of: isEditingMemo) { editing in
+            MemoPreviewWindowController.shared.isEditingActive = editing
         }
     }
 
-    // MARK: - Elastic Tension Cord View (精致悬空牵引线：细腻材质 + 自然下垂悬链曲线)
-    private var elasticCordView: some View {
-        ZStack {
-            // Top Mini Clothespin clipped onto the clothesline rope
-            Clothespin()
-                .frame(width: 13, height: 24)
-                .position(x: screen.frame.width / 2 + ropePegPoint.x,
-                          y: screen.frame.height / 2 + ropePegPoint.y)
-                .shadow(color: .black.opacity(0.18), radius: 2.5, y: 1)
-
-            // Delicate organic suspension cord
-            Path { path in
-                let start = CGPoint(x: screen.frame.width / 2 + ropePegPoint.x,
-                                    y: screen.frame.height / 2 + ropePegPoint.y + 11)
-                let end = CGPoint(x: screen.frame.width / 2 + (isExpanded ? cardClipPoint.x : (deltaOffset.width + cardClipPoint.x * initialScale)),
-                                  y: screen.frame.height / 2 + (isExpanded ? cardClipPoint.y : (deltaOffset.height + cardClipPoint.y * initialScale)))
-                path.move(to: start)
-                let dx = end.x - start.x
-                let dy = end.y - start.y
-                let cp1 = CGPoint(x: start.x + dx * 0.22 - 6, y: start.y + dy * 0.36)
-                let cp2 = CGPoint(x: start.x + dx * 0.78 - 3, y: start.y + dy * 0.78)
-                path.addCurve(to: end, control1: cp1, control2: cp2)
+    /// The card, drawn once in two faces inside one transformed frame: the card as it hangs
+    /// on the line and the full preview, crossfaded by the shared progress.
+    private func heroCard(_ item: Pegged) -> some View {
+        let size = cardSize
+        return ZStack(alignment: .topLeading) {
+            if flies {
+                HeroLineFace(item: item, lifted: placement.lifted, target: size)
+                    .modifier(HeroFade(progress: progress, from: 0.05, to: 0.35, inverted: true))
+                    .allowsHitTesting(false)
             }
-            .stroke(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.48, green: 0.44, blue: 0.40).opacity(0.80),
-                        Color(red: 0.58, green: 0.54, blue: 0.50).opacity(0.65)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                style: StrokeStyle(lineWidth: 1.3, lineCap: .round)
-            )
-            .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
+            Group {
+                if item.isMemo {
+                    if isEditingMemo {
+                        QuickMemoView(
+                            editingID: item.id,
+                            initialText: item.memoText,
+                            initialColor: item.memoColor,
+                            initialAspectRatio: item.aspectRatio,
+                            onEdit: { text, color, ratio in
+                                if ratio != item.aspectRatio {
+                                    line.updateMemoAspectRatio(id: item.id, aspectRatio: ratio)
+                                }
+                            },
+                            onSave: { text, color, ratio in
+                                line.updateMemo(id: item.id, text: text, color: color, aspectRatio: ratio)
+                                dismissWithAnimation()
+                            },
+                            onCancel: {
+                                withAnimation(Motion.snappy) {
+                                    isEditingMemo = false
+                                }
+                            }
+                        )
+                    } else {
+                        previewMemoCard(item)
+                    }
+                } else {
+                    photoPreviewCard(item)
+                }
+            }
+            .modifier(HeroFade(progress: progress, from: flies ? 0.10 : 0, to: flies ? 0.45 : 1))
         }
-        .opacity(isExpanded ? 1.0 : 0.0)
-        .animation(.spring(response: 0.38, dampingFraction: 0.74), value: isExpanded)
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .modifier(HeroCardEffect(progress: progress, previewW: size.width, previewH: size.height, geo: geo))
+    }
+
+    /// Runs the way back: the same path in reverse, finishing only once it has actually settled.
+    private func animateOut(_ completion: @escaping () -> Void) {
+        guard !closing else { return }
+        closing = true
+        // The line may have moved on, and the hover is gone: land where the card hangs now.
+        placement = Self.placement(line: line, itemID: itemID, screen: screen, origin: originProvider())
+
+        var finished = false
+        let finish = {
+            guard !finished else { return }
+            finished = true
+            completion()
+        }
+
+        guard flies else {
+            line.previewingID = nil
+            withAnimation(Motion.heroFade) {
+                progress = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: finish)
+            return
+        }
+
+        if #available(macOS 14.0, *) {
+            withAnimation(Motion.heroClose, completionCriteria: .logicallyComplete) {
+                progress = 0
+            } completion: {
+                finish()
+            }
+            // Safety net in case the completion never fires.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: finish)
+        } else {
+            withAnimation(Motion.heroClose) {
+                progress = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.heroCloseFallback, execute: finish)
+        }
     }
 
     private func dismissWithAnimation() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-            isExpanded = false
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            onClose()
-        }
+        onClose()
     }
 
     // MARK: - Memo Preview Card (多比例智能适配便签大卡片)
@@ -282,7 +758,7 @@ struct HeroPreviewHostView: View {
                 HStack(spacing: 2) {
                     ForEach(MemoAspectRatio.allCases, id: \.rawValue) { ratio in
                         Button {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                            withAnimation(Motion.snappy) {
                                 line.updateMemoAspectRatio(id: item.id, aspectRatio: ratio.rawValue)
                             }
                         } label: {
@@ -388,7 +864,9 @@ struct HeroPreviewHostView: View {
 
                     // Edit button
                     Button {
-                        onEditMemo()
+                        withAnimation(Motion.snappy) {
+                            isEditingMemo = true
+                        }
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.pencil")
@@ -421,7 +899,9 @@ struct HeroPreviewHostView: View {
         )
         .shadow(color: .black.opacity(0.35), radius: 34, y: 16)
         .onTapGesture(count: 2) {
-            onEditMemo()
+            withAnimation(Motion.snappy) {
+                isEditingMemo = true
+            }
         }
     }
 
@@ -588,29 +1068,3 @@ struct HeroPreviewHostView: View {
         return LinearGradient(colors: [c1, c2], startPoint: .top, endPoint: .bottom)
     }
 }
-
-/// Refined clothespin / clamp holding the suspended card, with a tiny metallic eyelet ring at the top
-struct SuspensionPeg: View {
-    var body: some View {
-        VStack(spacing: -3) {
-            // Metallic suspension ring / eyelet where the cord attaches
-            Circle()
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.85), Color.gray.opacity(0.65)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1.2
-                )
-                .frame(width: 7, height: 7)
-                .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
-
-            // Petite wooden clothespin
-            Clothespin()
-                .frame(width: 18, height: 36)
-                .shadow(color: .black.opacity(0.22), radius: 3, y: 1.5)
-        }
-    }
-}
-

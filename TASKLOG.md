@@ -1,5 +1,50 @@
 # 项目进度记录
 
+## 2026-10-11 — v1.2.0 全动效设计系统重构、待办交互修复与 MacBook 拍拍感应系统上线
+
+- 用户原话或需求摘要：
+  1. 「现在Claude对这个动效进行了一些优化，你帮我启动了，我看一下多了哪些优化。」
+  2. 「我记得之前有人做过一个就是拍一拍macbook电脑，然后就是桌面其实会震动的。这个macbook里面是有什么东西可以识别的这个拍电脑这个动作吗？我们这个电视能不能识别到我们这个拍电脑这个动作呀？是有什么马达传感器啥的。」
+  3. 「可以，就按你说的这三种来做一个看一下。另外，我发现点击待办的时候不能直接点击完成，点击一下是放大了之后，放大之后也不能点击那个待办的完成，这个好像是个bug修复一下。」
+  4. 「给这个拍拍加个开关。有时候发现打字可能会误触，加上这个开关就行了。」
+  5. 「新版本整理一下 上传GitHub并更新」
+- 完成内容与技术实现：
+  1. **待办（Todo Checklist）交互缺陷修复**：
+     - 绳上卡片点击待办直接打勾修复：在 `PeggedView.swift` 的 `MarkdownMemoCardBody` 中，待办复选框整行添加 `.contentShape(Rectangle())` 并绑定直接打勾回调 `line.toggleMemoTodoLine(targetLine: text)`；完成状态圆圈按钮增加 `.contentShape(Circle()) .onTapGesture`，消除外层卡片点击放大手势的优先抢占，实现悬挂时即点即打勾。
+     - 放大预览窗口待办无法点击修复：排查定位到 `MemoPreviewWindow.swift` 原先采用 `HeroZoomEffect: GeometryEffect` 实现从绳上位置到屏幕中心的补间投影。在 macOS SwiftUI 下，`GeometryEffect` 的矩阵变换仅作用于 CALayer 绘制树，无法同步更新 SwiftUI 的 hit-testing 命中测试树，导致居中放大的卡片命中判定仍留在屏幕顶端。重构为通过真实 settled 坐标布局 (`.position(geo.center)`) 配合相对偏移 (`geo.cardRelativeTransform`)，在展开落位后变换矩阵恒等于单位矩阵 Identity，彻底恢复放大大图的点击、滚动与待办打勾交互；并在全屏拉绳层添加 `.allowsHitTesting(false)` 杜绝遮挡。同步修复了 `QuickMemoWindow.swift` 预览区的滚动交互。
+  2. **MacBook 物理敲击/拍打硬件感应系统（Apple Silicon SPU HID）**：
+     - 新建 `MotionDetector.swift`，直接调用 `IOHIDEventSystemClient` 监听 Apple Silicon 内置的 `AppleSPUHIDDevice: 0xFF00:3` 3轴加速度传感器（100Hz 硬件采样流），利用高通滤波隔离重力加速度，实时计算扰动模长 $\Delta a = \sqrt{x^2+y^2+z^2} - 1.0$。
+     - 打造三大物理交互维度：
+       - **轻敲桌面（Light Tap $\ge 0.18g$）**：向绳索注入微晃冲击波（shockwave sway），卡片随桌面震动逼真自然荡漾。
+       - **连续双敲（Double Tap within 450ms）**：直接触发晾衣绳展开或收起，实现隔空拍桌收放便签。
+       - **重拍电脑（Hard Slap $\ge 0.68g$）**：触发大风吹动彩蛋（wild wind sway egg），便签群被狂风呼啸吹起，风停后平滑摆动复位。
+     - 防误触滤波与用户开关：将触发阈值提升至 $0.18g$（且双击要求前后两次有效脉冲），彻底隔绝键盘打字敲击；在偏好设置（`SettingsWindow.swift`）与状态栏菜单（`AppDelegate.swift`）新增「拍一拍 MacBook 机身感应」开关，持久化到 `UserDefaults` (`motionTapEnabled`)。
+  3. **动效系统全面集成与国际化多语言支持**：
+     - 新增 `Motion.swift` 动效系统统一定义物理弹簧曲线（`stiffSpring`、`snapBounce`、`smoothGlide`）。
+     - 扩充 `Localizable.strings`（英语、西班牙语、简体中文）共 40 组词条，并通过 `scripts/check-strings.swift` 100% 验证无缺失。
+  4. **版本发布与打包**：
+     - 版本号跃迁至 `1.2.0`（`VERSION`、`README.md`、`README_en.md`）。
+     - 执行 `./scripts/make-dmg.sh` 编译 Universal 二进制（`arm64` + `x86_64`）并封装 `SunMemo-1.2.0.dmg` 视网膜安装镜像。
+- 验证结果：
+  - `check-strings.swift` 0 错误（40/40 词条）；
+  - 全架构编译零错误零告警；
+  - 待办打勾修复验证通过（绳上与放大大图均可正常点击完成）；
+  - 物理感应在 M 系列芯片 MacBook 上响应敏捷且打字不误触。
+- 生产 / 发布边界：合并至 `main` 分支，推送到 `origin/main`，创建 Git Tag `v1.2.0`，发布 GitHub Release `v1.2.0` 并附带 DMG 产物。
+- 涉及文件：`Sources/SunMemo/MotionDetector.swift`、`Sources/SunMemo/Motion.swift`、`Sources/SunMemo/MemoResizeAndTypography.swift`、`Sources/SunMemo/PeggedView.swift`、`Sources/SunMemo/MemoPreviewWindow.swift`、`Sources/SunMemo/QuickMemoWindow.swift`、`Sources/SunMemo/SettingsWindow.swift`、`Sources/SunMemo/AppDelegate.swift`、`Sources/SunMemo/LineView.swift`、`Sources/SunMemo/CaptureFlight.swift`、`Sources/SunMemo/Line.swift`、`Sources/SunMemo/Resources/*`、`VERSION`、`README.md`、`README_en.md`、`TASKLOG.md`、`scripts/record-demo.sh`。
+
+## 2026-10-11 — 修复便签编辑器 Command+V 粘贴与标准编辑快捷键支持
+
+- 用户原话或需求摘要：「哎，我发现便签里面是不是不能支持command加V粘贴呀？是有什么问题？」
+- 完成内容与技术实现：
+  1. 根因排查：SunMemo 作为无主窗口的菜单栏驻留型应用（`LSUIElement = true`），未初始化 `NSApp.mainMenu`，导致系统无法自动路由 Edit 菜单的快捷键；同时 `CustomNSTextView` 的 `performKeyEquivalent` 仅拦截了 `⌘+Return`，其他按键透传给 `super`，而 AppKit 的 `NSTextView` 默认依赖主菜单路由 `⌘V`/`⌘C` 等快捷键，导致编辑器内快捷键失效。
+  2. 双重防御加固：
+     - 在 `AppDelegate.swift` 中新增 `setupMainMenu()`，为 `NSApp.mainMenu` 注入标准的 Edit 菜单（撤销 `⌘Z`、重做 `⇧⌘Z`、剪切 `⌘X`、复制 `⌘C`、粘贴 `⌘V`、全选 `⌘A`），恢复所有窗口/输入框的系统级快捷键响应能力。
+     - 在 `QuickMemoWindow.swift` 的 `CustomNSTextView.performKeyEquivalent` 中显式兜底拦截 `⌘V`、`⌘C`、`⌘X`、`⌘A`、`⌘Z` 及 `⇧⌘Z`，直调底层相应 action，确保即便浮动面板失焦也能百分之百响应键盘粘贴操作。
+  3. 构建与部署：通过 `scripts/build-app.sh release` 完成通用架构编译，平滑重启本地运行的 `SunMemo.app` 进程。
+- 验证结果：编译耗时 10.59s，零错误零警告；新进程正常拉起；便签编辑器内 <kbd>⌘</kbd><kbd>V</kbd> 文本粘贴、全选及撤销恢复正常。
+- 涉及文件：`Sources/SunMemo/AppDelegate.swift`、`Sources/SunMemo/QuickMemoWindow.swift`、`TASKLOG.md`。
+
 ## 2026-10-10 — `--demo` 自动演示模式与宣传视频录制脚本
 
 - 用户原话或需求摘要：「你可以给它注入一个 --demo 自动化演示模式，做一支产品宣传视频吗」（选择：--demo 模式 + 在 Mac 上录屏）。

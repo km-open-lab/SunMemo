@@ -132,6 +132,36 @@ final class CaptureFlight {
     }
 
     private func run() {
+        if Motion.shouldReduceMotion {
+            update(1)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            container.opacity = falling ? 1 : 0
+            CATransaction.commit()
+            window.orderFrontRegardless()
+            start = CACurrentMediaTime()
+            duration = 0.22
+            let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    let k = min(1, (CACurrentMediaTime() - self.start) / self.duration)
+                    CATransaction.begin()
+                    CATransaction.setDisableActions(true)
+                    self.container.opacity = Float(self.falling ? (1 - k) : k)
+                    CATransaction.commit()
+                    if k >= 1 {
+                        self.timer?.invalidate()
+                        self.timer = nil
+                        self.completion()
+                        self.window.orderOut(nil)
+                    }
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            self.timer = timer
+            return
+        }
+
         if falling { update(1); updateFall(0) } else { update(0) }
         window.orderFrontRegardless()
         start = CACurrentMediaTime()

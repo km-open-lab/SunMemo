@@ -16,7 +16,7 @@ final class SettingsWindowController {
         let view = SettingsView()
         let hosting = NSHostingView(rootView: view)
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 495),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 575),
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
@@ -34,6 +34,7 @@ final class SettingsWindowController {
 struct SettingsView: View {
     @ObservedObject var hotKeyManager = HotKeyManager.shared
     @ObservedObject var clipboardWatcher = ClipboardWatcher.shared
+    @ObservedObject var motionDetector = MotionDetector.shared
     @ObservedObject var updateChecker = UpdateChecker.shared
     @State private var recordingTarget: RecordingTarget?
     /// Why the last recorded shortcut was not taken.
@@ -165,6 +166,28 @@ struct SettingsView: View {
             .padding(12)
             .background(Color(NSColor.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
 
+            // Physical Motion & Tap Section
+            VStack(alignment: .leading, spacing: 8) {
+                Text("物理感应 (拍一拍)")
+                    .font(.system(size: 13, weight: .semibold))
+
+                Toggle(isOn: Binding(
+                    get: { motionDetector.isEnabled },
+                    set: { motionDetector.isEnabled = $0 }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("启用 MacBook 拍拍 / 敲桌面物理感应")
+                            .font(.system(size: 12.5))
+                        Text("轻拍机身或敲桌面晃动卡片、连拍两下唤出/收起晾衣绳。日常高频打字若有误触，建议关闭。")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.checkbox)
+            }
+            .padding(12)
+            .background(Color(NSColor.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+
             // Software Updates Section
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -235,7 +258,7 @@ struct SettingsView: View {
             }
         }
         .padding(20)
-        .frame(width: 480, height: 420)
+        .frame(width: 480, height: 505)
         .onChange(of: recordingTarget) { target in
             if target != nil { shortcutMessage = nil }
         }

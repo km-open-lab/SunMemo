@@ -31,6 +31,11 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
     private var hasUnsavedChanges: Bool { current != original && !current.isBlank }
 
     func show(line: Line, editingMemoID: UUID? = nil) {
+        if let editingMemoID {
+            MemoPreviewWindowController.shared.show(line: line, itemID: editingMemoID, startEditing: true)
+            return
+        }
+
         if let window {
             // Already editing this one: bring it back with what you typed.
             if editingMemoID == self.editingMemoID {
@@ -185,7 +190,11 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
         let oldCenter = CGPoint(x: frame.midX, y: frame.midY)
         frame.size = size
         frame.origin = CGPoint(x: oldCenter.x - size.width / 2, y: oldCenter.y - size.height / 2)
-        window.animator().setFrame(frame, display: true)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.25
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.25, 0.1, 0.25, 1.0)
+            window.animator().setFrame(frame, display: true)
+        }
     }
 
     // MARK: Demo hooks
@@ -425,10 +434,10 @@ struct QuickMemoView: View {
                 HStack(spacing: 2) {
                     ForEach(MemoAspectRatio.allCases, id: \.rawValue) { ratio in
                         Button {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                            withAnimation(Motion.snappy) {
                                 aspectRatio = ratio.rawValue
-                                QuickMemoWindowController.shared.resizeWindow(to: ratio.editorWindowSize)
                             }
+                            QuickMemoWindowController.shared.resizeWindow(to: ratio.editorWindowSize)
                         } label: {
                             HStack(spacing: 3) {
                                 Text(ratio.symbol)
@@ -484,7 +493,7 @@ struct QuickMemoView: View {
             // MARK: Bottom Action Bar
             HStack(alignment: .center) {
                 HStack(spacing: 6) {
-                    Text("⌘ + Return 挂上 · Esc 取消")
+                    Text(editingID == nil ? "⌘ + Return 挂上 · Esc 取消" : "⌘ + Return 保存并飞回 · Esc 取消")
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(Color.secondary.opacity(0.85))
 
@@ -626,37 +635,28 @@ struct MarkdownPreviewScrollView: View {
                         if trimmed.hasPrefix("- [ ] ") || trimmed.hasPrefix("* [ ] ") || trimmed.hasPrefix("[ ] ") {
                             let content = String(trimmed.dropFirst(trimmed.hasPrefix("[ ] ") ? 4 : 6))
                             HStack(alignment: .top, spacing: 6) {
-                                Button {
+                                AnimatedTodoCheckbox(isChecked: false, size: 14) {
                                     onToggleTodo(index)
-                                } label: {
-                                    Image(systemName: "square")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(Color.secondary)
                                 }
-                                .buttonStyle(.plain)
-
-                                Text(LocalizedStringKey(content))
-                                    .font(.system(size: 13.5, weight: .regular, design: .rounded))
-                                    .foregroundStyle(Color.primary)
+                                AnimatedStrikethroughText(text: content, isStruck: false, font: .system(size: 13.5, weight: .regular, design: .rounded), lineLimit: nil)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                onToggleTodo(index)
                             }
                         } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") ||
                                   trimmed.hasPrefix("* [x] ") || trimmed.hasPrefix("* [X] ") ||
                                   trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") {
                             let content = String(trimmed.dropFirst(trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") ? 4 : 6))
                             HStack(alignment: .top, spacing: 6) {
-                                Button {
+                                AnimatedTodoCheckbox(isChecked: true, size: 14) {
                                     onToggleTodo(index)
-                                } label: {
-                                    Image(systemName: "checkmark.square.fill")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(Color.green)
                                 }
-                                .buttonStyle(.plain)
-
-                                Text(LocalizedStringKey(content))
-                                    .font(.system(size: 13.5, weight: .regular, design: .rounded))
-                                    .foregroundStyle(Color.secondary)
-                                    .strikethrough(true, color: .secondary)
+                                AnimatedStrikethroughText(text: content, isStruck: true, font: .system(size: 13.5, weight: .regular, design: .rounded), lineLimit: nil)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                onToggleTodo(index)
                             }
                         } else if trimmed.hasPrefix("#") {
                             let header = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
@@ -768,9 +768,38 @@ final class CustomNSTextView: NSTextView {
     var onCmdReturn: (() -> Void)?
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command) && event.keyCode == 36 { // ⌘ + Return
-            onCmdReturn?()
-            return true
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == .command {
+            if event.keyCode == 36 { // ⌘ + Return
+                onCmdReturn?()
+                return true
+            }
+            if let chars = event.charactersIgnoringModifiers?.lowercased() {
+                switch chars {
+                case "v":
+                    paste(nil)
+                    return true
+                case "c":
+                    copy(nil)
+                    return true
+                case "x":
+                    cut(nil)
+                    return true
+                case "a":
+                    selectAll(nil)
+                    return true
+                case "z":
+                    undoManager?.undo()
+                    return true
+                default:
+                    break
+                }
+            }
+        } else if flags == [.command, .shift] {
+            if event.charactersIgnoringModifiers?.lowercased() == "z" {
+                undoManager?.redo()
+                return true
+            }
         }
         return super.performKeyEquivalent(with: event)
     }

@@ -12,6 +12,13 @@ enum Layout {
         (MemoAspectRatio(rawValue: aspectRatio) ?? .wide).ropeSize.width
     }
 
+    static func memoWidth(for item: Pegged) -> CGFloat {
+        if let customW = item.customWidth {
+            return MemoLimits.clampWidth(customW) + Frame.inset * 2
+        }
+        return memoWidth(for: item.aspectRatio)
+    }
+
     /// The rope hangs as a parabola from edge to edge of the screen.
     static func sag(width: CGFloat) -> CGFloat { min(32, width * 0.018) }
 
@@ -43,6 +50,7 @@ enum Layout {
 
 struct LineView: View {
     @ObservedObject var line: Line
+    @State private var ropeVibration: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -56,15 +64,16 @@ struct LineView: View {
                 ForEach(Array(line.items.enumerated()), id: \.element.id) { index, item in
                     let x = Layout.x(index: index, count: totalCards, width: width)
                     let ropeY = Layout.ropeY(x: x, width: width)
-                    let itemWidth = item.isMemo ? Layout.memoWidth(for: item.aspectRatio) : Layout.cardWidth
+                    let itemWidth = item.isMemo ? Layout.memoWidth(for: item) : Layout.cardWidth
                     let peek = peekingTransform(index: index, hoveredID: line.hoveredID)
                     PeggedView(item: item, line: line)
-                        .offset(x: peek.xOffset, y: peek.yOffset)
+                        .scaleEffect(peek.scale, anchor: .top)
+                        .offset(x: peek.xOffset)
                         .rotationEffect(.degrees(peek.tilt), anchor: .top)
                         .frame(width: itemWidth, height: Layout.panelHeight - ropeY, alignment: .top)
                         .position(x: x, y: ropeY - Layout.pinAbove + (Layout.panelHeight - ropeY) / 2)
                         .zIndex(peek.zIndex)
-                        .animation(.spring(response: 0.28, dampingFraction: 0.78), value: line.hoveredID)
+                        .animation(Motion.snappy, value: line.hoveredID)
                 }
 
                 // Add Memo Card at the end of the line
@@ -76,7 +85,7 @@ struct LineView: View {
                     .frame(width: Layout.memoWidth, height: Layout.panelHeight - addRopeY, alignment: .top)
                     .position(x: addX, y: addRopeY - Layout.pinAbove + (Layout.panelHeight - addRopeY) / 2)
                     .zIndex(Double(totalCards + 1))
-                    .animation(.spring(response: 0.28, dampingFraction: 0.78), value: line.hoveredID)
+                    .animation(Motion.snappy, value: line.hoveredID)
 
                 // Top right control buttons
                 HStack(spacing: 8) {
@@ -92,79 +101,84 @@ struct LineView: View {
                         .transition(.opacity)
                 }
             }
-            .animation(.spring(response: 0.55, dampingFraction: 0.78), value: line.items.map(\.id))
+            .animation(Motion.gentle, value: line.items.map(\.id))
             .animation(.easeInOut(duration: 0.3), value: line.items.isEmpty)
-            .offset(y: line.revealed ? 0 : -(Layout.panelHeight + 12))
-            .animation(line.revealed ? .spring(response: 0.42, dampingFraction: 0.82)
-                                     : .easeIn(duration: 0.22), value: line.revealed)
+            .offset(y: (line.revealed ? 0 : -(Layout.panelHeight + 12)) + ropeVibration)
+            .animation(line.revealed ? Motion.gentle : .easeIn(duration: 0.22), value: line.revealed)
         }
         .onPreferenceChange(HitRectsKey.self) { rects in
             line.hitRects = rects
+        }
+        .onChange(of: line.shockToken) { _ in
+            guard !Motion.shouldReduceMotion else { return }
+            withAnimation(Motion.bouncy) {
+                ropeVibration = 2.4 * (Bool.random() ? 1 : -1)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                withAnimation(Motion.gentle) {
+                    ropeVibration = 0
+                }
+            }
+        }
+        .onChange(of: line.hardSlapToken) { _ in
+            guard !Motion.shouldReduceMotion else { return }
+            withAnimation(Motion.bouncy) {
+                ropeVibration = 5.5 * (Bool.random() ? 1 : -1)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
+                withAnimation(Motion.gentle) {
+                    ropeVibration = 0
+                }
+            }
         }
     }
 
     /// Scheme B: Hand-parting playing cards (扇面推开 / Peeking 让位)
     /// When hovering over a card:
-    /// - The hovered card steps forward with no scale swelling.
-    /// - Adjacent cards part smoothly to the left/right like playing cards held in hand.
-    private func peekingTransform(index: Int, hoveredID: UUID?) -> (xOffset: CGFloat, yOffset: CGFloat, tilt: Double, zIndex: Double) {
+    /// - Hovered card steps forward into clear view: a small lift anchored at its
+    ///   clothespin, so the pin stays on the rope.
+    /// - Adjacent cards part smoothly using a continuous exponential decay curve.
+    /// - Respects Reduce Motion by disabling tilt and offsets.
+    private func peekingTransform(index: Int, hoveredID: UUID?) -> (xOffset: CGFloat, scale: CGFloat, tilt: Double, zIndex: Double) {
+        let baseZIndex = Double(index + 1)
         guard let hoveredID,
               let hIndex = line.items.firstIndex(where: { $0.id == hoveredID }) else {
-            return (0.0, 0.0, 0.0, Double(index + 1))
+            return (0.0, 1.0, 0.0, baseZIndex)
         }
+
+        let maxCards = Double(line.items.count)
+        if Motion.shouldReduceMotion {
+            // Under reduce motion: no parting or tilting, hovered card slightly elevated
+            let zIndex = (index == hIndex) ? (maxCards + 5) : baseZIndex
+            return (0.0, 1.0, 0.0, zIndex)
+        }
+
         let dist = abs(index - hIndex)
         if dist == 0 {
             // Hovered card steps forward into clear view
-            return (0.0, 8.0, 0.0, 1000.0)
-        } else if index < hIndex {
-            // Left cards part to the left
-            let xOff: CGFloat
-            let tilt: Double
-            if dist == 1 {
-                xOff = -28.0
-                tilt = -2.2
-            } else if dist == 2 {
-                xOff = -14.0
-                tilt = -1.2
-            } else if dist == 3 {
-                xOff = -5.0
-                tilt = -0.5
-            } else {
-                xOff = 0.0
-                tilt = 0.0
-            }
-            return (xOff, 0.0, tilt, Double(900 - dist))
+            return (0.0, Motion.hoverLift, 0.0, maxCards + 5)
         } else {
-            // Right cards part to the right
-            let xOff: CGFloat
-            let tilt: Double
-            if dist == 1 {
-                xOff = 28.0
-                tilt = 2.2
-            } else if dist == 2 {
-                xOff = 14.0
-                tilt = 1.2
-            } else if dist == 3 {
-                xOff = 5.0
-                tilt = 0.5
-            } else {
-                xOff = 0.0
-                tilt = 0.0
-            }
-            return (xOff, 0.0, tilt, Double(900 - dist))
+            // Continuous exponential decay curve (no discrete step jumps)
+            let d = Double(dist)
+            let decay = exp(-0.68 * (d - 1.0))
+            let direction: CGFloat = (index < hIndex) ? -1.0 : 1.0
+            let xOff = direction * CGFloat(28.0 * decay)
+            let tilt = Double(direction) * (2.2 * decay)
+            let zIndex = max(1.0, maxCards + 4 - Double(dist))
+            return (xOff, 1.0, tilt, zIndex)
         }
     }
 
     private func addCardPeekingOffset(hoveredID: UUID?) -> CGFloat {
-        guard let hoveredID,
+        guard !Motion.shouldReduceMotion,
+              let hoveredID,
               let hIndex = line.items.firstIndex(where: { $0.id == hoveredID }) else {
             return 0
         }
         let dist = line.items.count - hIndex
-        if dist == 1 {
-            return 26.0
-        } else if dist == 2 {
-            return 12.0
+        if dist >= 1 {
+            let decay = exp(-0.68 * (Double(dist) - 1.0))
+            return CGFloat(26.0 * decay)
         }
         return 0
     }
@@ -218,7 +232,7 @@ struct AddMemoCardView: View {
         .glassFrame(cornerRadius: Frame.radius)
         .shadow(color: .black.opacity(isHovering ? 0.22 : 0.12), radius: isHovering ? 12 : 8, y: 4)
         .scaleEffect(isHovering ? 1.03 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovering)
+        .animation(Motion.snappy, value: isHovering)
         .onHover { isHovering = $0 }
         .background(
             GeometryReader { g in

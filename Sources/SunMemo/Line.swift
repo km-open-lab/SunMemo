@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SwiftUI
 import os
 
 let log = Logger(subsystem: "com.zhangkaiming.SunMemo", category: "line")
@@ -12,6 +13,8 @@ struct MemoData: Codable {
     var isDone: Bool
     var createdAt: Date
     var aspectRatio: String?
+    var customWidth: CGFloat?
+    var customHeight: CGFloat?
 }
 
 /// One screenshot or memo hanging on the line.
@@ -32,6 +35,8 @@ struct Pegged: Identifiable, Equatable {
     var isDone: Bool = false
     var createdAt: Date = Date()
     var aspectRatio: String = "wide" // "wide" (16:10), "square" (1:1), "tall" (3:4)
+    var customWidth: CGFloat? = nil
+    var customHeight: CGFloat? = nil
 
     init(id: UUID = UUID(), url: URL, thumb: NSImage,
          tilt: Double = Double.random(in: -2.5...2.5),
@@ -39,7 +44,9 @@ struct Pegged: Identifiable, Equatable {
          isMemo: Bool = false, memoText: String = "",
          memoColor: String = "yellow", isDone: Bool = false,
          createdAt: Date = Date(),
-         aspectRatio: String = "wide") {
+         aspectRatio: String = "wide",
+         customWidth: CGFloat? = nil,
+         customHeight: CGFloat? = nil) {
         self.id = id
         self.url = url
         self.thumb = thumb
@@ -51,6 +58,8 @@ struct Pegged: Identifiable, Equatable {
         self.isDone = isDone
         self.createdAt = createdAt
         self.aspectRatio = aspectRatio
+        self.customWidth = customWidth
+        self.customHeight = customHeight
     }
 
     static func == (a: Pegged, b: Pegged) -> Bool {
@@ -58,6 +67,8 @@ struct Pegged: Identifiable, Equatable {
             && a.isMemo == b.isMemo && a.memoText == b.memoText
             && a.isDone == b.isDone && a.memoColor == b.memoColor
             && a.aspectRatio == b.aspectRatio
+            && a.customWidth == b.customWidth
+            && a.customHeight == b.customHeight
     }
 }
 
@@ -70,19 +81,89 @@ final class Line: ObservableObject {
     @Published var copiedID: UUID?
     @Published var draggingID: UUID?
     @Published var pressedID: UUID?
-    @Published var revealed = false
+    @Published var revealed = false {
+        didSet {
+            if revealed {
+                resumeGust()
+            } else {
+                pauseGust()
+            }
+        }
+    }
 
     /// Inline adding/editing memo state
     @Published var isAddingMemo = false
     @Published var editingID: UUID?
     @Published var hoveredID: UUID?
+    @Published var wobbledID: UUID?
+    /// The card currently flown off the line into the preview. Its body is hidden
+    /// here so there is only one copy of it on screen; the clothespin stays.
+    @Published var previewingID: UUID?
+
+    private var hoverWorkItem: DispatchWorkItem?
+    private var unhoverWorkItem: DispatchWorkItem?
+    private var pendingHoverID: UUID?
+    private var gustWorkItem: DispatchWorkItem?
 
     func setHovered(_ id: UUID, hovering: Bool) {
         if hovering {
-            hoveredID = id
-        } else if hoveredID == id {
-            hoveredID = nil
+            unhoverWorkItem?.cancel()
+            unhoverWorkItem = nil
+            if hoveredID == id { return }
+            pendingHoverID = id
+            hoverWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, self.pendingHoverID == id else { return }
+                self.hoveredID = id
+            }
+            hoverWorkItem = work
+            // Hover dwell delay (~60ms) before parting cards to avoid jitter when sweeping across
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
+        } else {
+            if pendingHoverID == id {
+                pendingHoverID = nil
+                hoverWorkItem?.cancel()
+                hoverWorkItem = nil
+            }
+            if hoveredID == id {
+                unhoverWorkItem?.cancel()
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self, self.hoveredID == id else { return }
+                    self.hoveredID = nil
+                }
+                unhoverWorkItem = work
+                // Delayed exit before collapsing cards back
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: work)
+            }
         }
+    }
+
+    /// Triggers a gentle tactile wobble on the specified card (e.g. when preview closes back onto line)
+    func wobble(_ id: UUID) {
+        wobbledID = id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            if self?.wobbledID == id {
+                self?.wobbledID = nil
+            }
+        }
+    }
+
+    /// Physical vibration & tap shock tokens
+    @Published private(set) var shockToken = 0
+    @Published private(set) var shockIntensity: Double = 1.0
+    @Published private(set) var hardSlapToken = 0
+
+    /// Light tap on laptop or desk: physical shock sway across cards
+    func triggerTapShock(intensity: Double = 1.0) {
+        shockIntensity = min(max(intensity, 0.6), 2.4)
+        shockToken += 1
+        play("Tink", volume: 0.16)
+    }
+
+    /// Hard slap on laptop: gusty strong sway and wind whoosh
+    func triggerHardSlap() {
+        hardSlapToken += 1
+        play("Blow", volume: 0.32)
     }
 
     /// Flag to prevent ClipboardWatcher from reacting to our own copy operations
@@ -116,7 +197,6 @@ final class Line: ObservableObject {
 
     init() {
         restore()
-        scheduleGust()
     }
 
     // MARK: Hanging and dropping
@@ -128,11 +208,15 @@ final class Line: ObservableObject {
         var item: Pegged
         if url.pathExtension.lowercased() == "json" {
             guard let memo = Self.readMemo(at: url) else { return nil }
-            let thumb = makeMemoThumbnail(text: memo.text, color: memo.color, isDone: memo.isDone)
+            let ratio = memo.aspectRatio ?? "wide"
+            let customW = memo.customWidth
+            let customH = memo.customHeight
+            let thumb = makeMemoThumbnail(text: memo.text, color: memo.color, isDone: memo.isDone, aspectRatio: ratio, createdAt: memo.createdAt, customWidth: customW, customHeight: customH)
             item = Pegged(id: memo.id, url: url, thumb: thumb, isMemo: true,
                           memoText: memo.text, memoColor: memo.color,
                           isDone: memo.isDone, createdAt: memo.createdAt,
-                          aspectRatio: memo.aspectRatio ?? "wide")
+                          aspectRatio: ratio,
+                          customWidth: customW, customHeight: customH)
         } else {
             guard let thumb = makeThumbnail(url) else { return nil }
             item = Pegged(url: url, thumb: thumb, flying: flying)
@@ -158,11 +242,12 @@ final class Line: ObservableObject {
         guard !trimmed.isEmpty else { return nil }
 
         let id = UUID()
+        let now = Date()
         let fileURL = Self.memosFolder.appendingPathComponent("memo_\(id.uuidString).json")
-        let thumb = makeMemoThumbnail(text: trimmed, color: color, isDone: false)
+        let thumb = makeMemoThumbnail(text: trimmed, color: color, isDone: false, aspectRatio: aspectRatio, createdAt: now)
         let item = Pegged(id: id, url: fileURL, thumb: thumb, flying: flying, isMemo: true,
                           memoText: trimmed, memoColor: color,
-                          isDone: false, createdAt: Date(),
+                          isDone: false, createdAt: now,
                           aspectRatio: aspectRatio)
         // Hung even if the write fails: the text stays visible on the line,
         // and the next edit tries to save it again.
@@ -188,7 +273,7 @@ final class Line: ObservableObject {
         if let aspectRatio {
             items[i].aspectRatio = aspectRatio
         }
-        items[i].thumb = makeMemoThumbnail(text: trimmed, color: items[i].memoColor, isDone: items[i].isDone)
+        items[i].thumb = makeMemoThumbnail(text: trimmed, color: items[i].memoColor, isDone: items[i].isDone, aspectRatio: items[i].aspectRatio, createdAt: items[i].createdAt, customWidth: items[i].customWidth, customHeight: items[i].customHeight)
         writeMemo(items[i])
         save()
     }
@@ -196,15 +281,27 @@ final class Line: ObservableObject {
     func updateMemoAspectRatio(id: UUID, aspectRatio: String) {
         guard let i = items.firstIndex(where: { $0.id == id && $0.isMemo }) else { return }
         items[i].aspectRatio = aspectRatio
+        items[i].customWidth = nil
+        items[i].customHeight = nil
+        items[i].thumb = makeMemoThumbnail(text: items[i].memoText, color: items[i].memoColor, isDone: items[i].isDone, aspectRatio: aspectRatio, createdAt: items[i].createdAt)
         writeMemo(items[i])
         save()
         play("Tink", volume: 0.25)
     }
 
+    func updateMemoCustomSize(id: UUID, width: CGFloat?, height: CGFloat?) {
+        guard let i = items.firstIndex(where: { $0.id == id && $0.isMemo }) else { return }
+        items[i].customWidth = width
+        items[i].customHeight = height
+        items[i].thumb = makeMemoThumbnail(text: items[i].memoText, color: items[i].memoColor, isDone: items[i].isDone, aspectRatio: items[i].aspectRatio, createdAt: items[i].createdAt, customWidth: width, customHeight: height)
+        writeMemo(items[i])
+        save()
+    }
+
     func toggleMemoDone(_ id: UUID) {
         guard let i = items.firstIndex(where: { $0.id == id && $0.isMemo }) else { return }
         items[i].isDone.toggle()
-        items[i].thumb = makeMemoThumbnail(text: items[i].memoText, color: items[i].memoColor, isDone: items[i].isDone)
+        items[i].thumb = makeMemoThumbnail(text: items[i].memoText, color: items[i].memoColor, isDone: items[i].isDone, aspectRatio: items[i].aspectRatio, createdAt: items[i].createdAt, customWidth: items[i].customWidth, customHeight: items[i].customHeight)
 
         writeMemo(items[i])
         save()
@@ -217,7 +314,7 @@ final class Line: ObservableObject {
         let result = MemoSyncManager.toggleTodoLine(in: items[i].memoText, lineIndex: lineIndex)
         items[i].memoText = result.newText
         items[i].isDone = result.allDone
-        items[i].thumb = makeMemoThumbnail(text: result.newText, color: items[i].memoColor, isDone: items[i].isDone)
+        items[i].thumb = makeMemoThumbnail(text: result.newText, color: items[i].memoColor, isDone: items[i].isDone, aspectRatio: items[i].aspectRatio, createdAt: items[i].createdAt, customWidth: items[i].customWidth, customHeight: items[i].customHeight)
 
         writeMemo(items[i])
         save()
@@ -379,12 +476,31 @@ final class Line: ObservableObject {
 
     // MARK: Breeze
 
+    private func resumeGust() {
+        guard gustWorkItem == nil else { return }
+        scheduleGust()
+    }
+
+    private func pauseGust() {
+        gustWorkItem?.cancel()
+        gustWorkItem = nil
+    }
+
     private func scheduleGust() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + .random(in: 7...16)) { [weak self] in
-            guard let self else { return }
-            if !self.items.isEmpty && self.draggingID == nil { self.gust += 1 }
+        gustWorkItem?.cancel()
+        guard revealed else {
+            gustWorkItem = nil
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.revealed else { return }
+            if !Motion.shouldReduceMotion && !self.items.isEmpty && self.draggingID == nil {
+                self.gust += 1
+            }
             self.scheduleGust()
         }
+        gustWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + .random(in: 7...16), execute: work)
     }
 
     // MARK: Persistence
@@ -421,7 +537,9 @@ final class Line: ObservableObject {
     private func writeMemo(_ item: Pegged) -> Bool {
         let memo = MemoData(id: item.id, text: item.memoText, color: item.memoColor,
                             isDone: item.isDone, createdAt: item.createdAt,
-                            aspectRatio: item.aspectRatio)
+                            aspectRatio: item.aspectRatio,
+                            customWidth: item.customWidth,
+                            customHeight: item.customHeight)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         do {
@@ -517,43 +635,162 @@ func makeThumbnail(_ url: URL, maxPixels: Int = 480) -> NSImage? {
     return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
 }
 
-func makeMemoThumbnail(text: String, color: String, isDone: Bool) -> NSImage {
-    let size = NSSize(width: 300, height: 240)
-    let image = NSImage(size: size)
-    image.lockFocus()
+// MARK: - High-fidelity Memo Card Snapshot for Flight and Drop Animations
 
-    let bgColor: NSColor
-    switch color.lowercased() {
-    case "green": bgColor = NSColor(red: 0.85, green: 0.96, blue: 0.85, alpha: 1.0)
-    case "pink":  bgColor = NSColor(red: 1.0, green: 0.88, blue: 0.92, alpha: 1.0)
-    case "blue":  bgColor = NSColor(red: 0.85, green: 0.93, blue: 1.0, alpha: 1.0)
-    default:      bgColor = NSColor(red: 1.0, green: 0.95, blue: 0.68, alpha: 1.0)
+struct MemoCardSnapshotView: View {
+    let text: String
+    let color: String
+    let isDone: Bool
+    let aspectRatio: String
+    let createdAt: Date
+    var customWidth: CGFloat? = nil
+    var customHeight: CGFloat? = nil
+
+    private var memoRatio: MemoAspectRatio {
+        MemoAspectRatio(rawValue: aspectRatio) ?? .wide
     }
 
-    let rect = NSRect(origin: .zero, size: size).insetBy(dx: 4, dy: 4)
-    let path = NSBezierPath(roundedRect: rect, xRadius: 16, yRadius: 16)
-    bgColor.setFill()
-    path.fill()
+    var body: some View {
+        let config = MemoTypography.config(for: text)
+        VStack(alignment: .leading, spacing: 4) {
+            if config.isSingleShortLine {
+                Spacer(minLength: 0)
+            }
+            snapshotBody
 
-    NSColor.black.withAlphaComponent(0.08).setStroke()
-    path.lineWidth = 1
-    path.stroke()
+            Spacer(minLength: 2)
 
-    let para = NSMutableParagraphStyle()
-    para.lineBreakMode = .byWordWrapping
-    let font = NSFont.systemFont(ofSize: 20, weight: .medium)
-    var attrs: [NSAttributedString.Key: Any] = [
-        .font: font,
-        .foregroundColor: isDone ? NSColor.secondaryLabelColor : NSColor.labelColor,
-        .paragraphStyle: para
-    ]
-    if isDone {
-        attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+            HStack(alignment: .center) {
+                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isDone ? Color.green : Color.secondary)
+
+                let stats = MemoSyncManager.calculateTodoStats(text: text)
+                if stats.total > 0 {
+                    Text("\(stats.completed)/\(stats.total) 完成")
+                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(stats.completed == stats.total ? Color.green : Color.secondary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.black.opacity(0.06), in: Capsule())
+                }
+
+                Spacer()
+
+                Text(timeAgoString(from: createdAt))
+                    .font(.system(size: 9.5, weight: .regular))
+                    .foregroundStyle(Color.secondary.opacity(0.8))
+            }
+        }
+        .padding(10)
+        .frame(width: customWidth.map(MemoLimits.clampWidth) ?? memoRatio.cardContentSize.width,
+               height: customHeight.map(MemoLimits.clampHeight) ?? memoRatio.cardContentSize.height)
+        .background(memoBackground(for: color))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.black.opacity(0.08), lineWidth: 0.5)
+        )
     }
 
-    let textRect = rect.insetBy(dx: 16, dy: 16)
-    (text as NSString).draw(in: textRect, withAttributes: attrs)
+    private var snapshotBody: some View {
+        let config = MemoTypography.config(for: text)
+        let lines = text.components(separatedBy: "\n")
+        let maxLines = memoRatio == .tall ? 7 : (memoRatio == .square ? 5 : 4)
+        let visibleLines = Array(lines.prefix(maxLines).enumerated())
 
-    image.unlockFocus()
-    return image
+        return VStack(alignment: .leading, spacing: config.lineSpacing) {
+            ForEach(visibleLines, id: \.offset) { _, rawLine in
+                let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("- [ ] ") || trimmed.hasPrefix("* [ ] ") || trimmed.hasPrefix("[ ] ") {
+                    let content = String(trimmed.dropFirst(trimmed.hasPrefix("[ ] ") ? 4 : 6))
+                    HStack(alignment: .center, spacing: config.fontSize > 16 ? 7 : 5) {
+                        Image(systemName: "square")
+                            .font(.system(size: config.todoBoxSize - 1, weight: .semibold))
+                            .foregroundStyle(Color.secondary)
+                        Text(LocalizedStringKey(content))
+                            .font(.system(size: config.fontSize, weight: config.fontWeight, design: .rounded))
+                            .foregroundStyle(Color.primary)
+                            .lineLimit(config.isSingleShortLine ? 2 : 1)
+                    }
+                } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") ||
+                          trimmed.hasPrefix("* [x] ") || trimmed.hasPrefix("* [X] ") ||
+                          trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") {
+                    let content = String(trimmed.dropFirst(trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") ? 4 : 6))
+                    HStack(alignment: .center, spacing: config.fontSize > 16 ? 7 : 5) {
+                        Image(systemName: "checkmark.square.fill")
+                            .font(.system(size: config.todoBoxSize - 1, weight: .semibold))
+                            .foregroundStyle(Color.green)
+                        Text(LocalizedStringKey(content))
+                            .font(.system(size: config.fontSize, weight: config.fontWeight, design: .rounded))
+                            .foregroundStyle(Color.secondary)
+                            .strikethrough(true, color: .secondary)
+                            .lineLimit(config.isSingleShortLine ? 2 : 1)
+                    }
+                } else if trimmed.hasPrefix("#") {
+                    let header = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
+                    Text(LocalizedStringKey(header))
+                        .font(.system(size: max(12, config.fontSize), weight: .bold, design: .rounded))
+                        .foregroundStyle(isDone ? Color.secondary : Color.primary)
+                        .strikethrough(isDone, color: .secondary)
+                        .lineLimit(config.isSingleShortLine ? 2 : 1)
+                } else {
+                    Text(LocalizedStringKey(trimmed))
+                        .font(.system(size: config.fontSize, weight: config.fontWeight, design: .rounded))
+                        .foregroundStyle(isDone ? Color.secondary : Color.primary)
+                        .strikethrough(isDone, color: .secondary)
+                        .lineLimit(config.isSingleShortLine ? 2 : 1)
+                }
+            }
+            if lines.count > maxLines {
+                Text("... 还有 \(lines.count - maxLines) 项")
+                    .font(.system(size: 9.5, weight: .regular))
+                    .foregroundStyle(Color.secondary.opacity(0.7))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: config.isSingleShortLine ? .center : .topLeading)
+    }
+
+    private func memoBackground(for color: String) -> some View {
+        let (c1, c2): (Color, Color)
+        switch color.lowercased() {
+        case "green":
+            c1 = Color(red: 0.88, green: 0.97, blue: 0.88)
+            c2 = Color(red: 0.82, green: 0.93, blue: 0.82)
+        case "pink":
+            c1 = Color(red: 1.0, green: 0.90, blue: 0.93)
+            c2 = Color(red: 0.98, green: 0.83, blue: 0.88)
+        case "blue":
+            c1 = Color(red: 0.88, green: 0.94, blue: 1.0)
+            c2 = Color(red: 0.80, green: 0.89, blue: 0.98)
+        default: // yellow
+            c1 = Color(red: 1.0, green: 0.96, blue: 0.72)
+            c2 = Color(red: 0.98, green: 0.91, blue: 0.58)
+        }
+        return LinearGradient(colors: [c1, c2], startPoint: .top, endPoint: .bottom)
+    }
+
+    private func timeAgoString(from date: Date) -> String {
+        let seconds = Int(-date.timeIntervalSinceNow)
+        if seconds < 60 { return "刚刚" }
+        if seconds < 3600 { return "\(max(1, seconds / 60))分钟前" }
+        if seconds < 86400 { return "\(seconds / 3600)小时前" }
+        let f = DateFormatter()
+        f.dateFormat = "M/d"
+        return f.string(from: date)
+    }
+}
+
+@MainActor
+func makeMemoThumbnail(text: String, color: String, isDone: Bool, aspectRatio: String = "wide", createdAt: Date = Date(), customWidth: CGFloat? = nil, customHeight: CGFloat? = nil) -> NSImage {
+    let view = MemoCardSnapshotView(text: text, color: color, isDone: isDone, aspectRatio: aspectRatio, createdAt: createdAt, customWidth: customWidth, customHeight: customHeight)
+    let renderer = ImageRenderer(content: view)
+    renderer.scale = NSScreen.main?.backingScaleFactor ?? 2.0
+    if let image = renderer.nsImage {
+        return image
+    }
+    let ratio = MemoAspectRatio(rawValue: aspectRatio) ?? .wide
+    let w = customWidth.map(MemoLimits.clampWidth) ?? ratio.cardContentSize.width
+    let h = customHeight.map(MemoLimits.clampHeight) ?? ratio.cardContentSize.height
+    return NSImage(size: CGSize(width: w, height: h))
 }

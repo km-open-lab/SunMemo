@@ -12,7 +12,7 @@
   <br><br>
   <strong>数据存本地 · 无账号无统计 · 极速流畅 · 兼容 macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
-  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.1.0)</strong></a>
+  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.2.0)</strong></a>
   &nbsp;·&nbsp;
   <a href="#-快捷键与操作手势">快捷键一览</a>
   &nbsp;·&nbsp;
@@ -61,11 +61,16 @@
 - **撕下便签带时间戳归档**：点击卡片撕下后自动沉淀至 `# 📦 历史已撕下便签归档`，精确记录创建时间与撕下时间戳。
 - 可以用 **Obsidian、Typora、VS Code** 等打开查看和检索；需要二次整理时请先另存一份。
 
-### 🔄 6. 自动更新检测与设置管理 (Auto-Update & Preferences)
+### 📳 6. 敲击笔记本桌面硬件感应 (MacBook Chassis Tap Detection)
+- **底层 Apple Silicon SPU HID 物理加速度计直连**：精准捕获机身与桌面震动冲击波，无需摄像头或麦克风权限。
+- **三重物理交互维度**：轻敲桌面引起绳索与便签涟漪微晃；450ms 内快速双敲直接呼出 / 收起晾衣绳；用力拍击桌面触发大风吹动彩蛋。
+- **贴心防误触设计**：内置高信噪比滤波算法，杜绝日常键盘打字误触；可在偏好设置与状态栏随时一键开启或关闭。
+
+### 🔄 7. 自动更新检测与设置管理 (Auto-Update & Preferences)
 - 内置 GitHub Releases 自动版本检查，新版本发布时在菜单栏友好提示，一键跳转更新。
 - 专属偏好设置面板，支持自定义录制全局快捷键与开关剪贴板自动挂绳。
 
-### 🛡️ 7. 本地优先与隐私 (Local-first & Private)
+### 🛡️ 8. 本地优先与隐私 (Local-first & Private)
 - **0 账号体系**、**0 统计与追踪**、**0 第三方 SDK**。
 - **唯一的联网行为是检查更新**：默认开启，启动时和之后每 24 小时请求一次 GitHub Releases API（`api.github.com`），只读取最新版本号，不上传任何便签或截图。可在「偏好设置 → 软件版本与自动更新」中关闭。
 - 便签、截图与配置都保存在本机。注意：如果开启了 iCloud「桌面与文稿」同步，`~/Documents/SunMemo.md` 会随文稿目录一起同步到 iCloud。
@@ -79,6 +84,7 @@
 | <kbd>⌃</kbd>&thinsp;<kbd>⌥</kbd>&thinsp;<kbd>␣</kbd> | **呼出 / 收起晾衣绳**（下拉或隐藏顶部便签绳） |
 | <kbd>⌃</kbd>&thinsp;<kbd>⌥</kbd>&thinsp;<kbd>N</kbd> | **弹出速记窗口**（写想法、列待办） |
 | <kbd>⌃</kbd>&thinsp;<kbd>⌥</kbd>&thinsp;<kbd>V</kbd> | **挂上剪贴板内容**（将截图或复制的文本挂上绳） |
+| **拍一拍 MacBook** | **物理敲击感应**（轻敲微晃绳索、快速双拍呼出/收起绳索、重拍起风，偏好设置可开关） |
 | **单击便签卡片** | 弹出便签大窗口进行查看与二次编辑 |
 | **单击待办复选框** | 在卡片上直接勾选或取消待办事项（`- [ ]` ↔ `- [x]`） |
 | **拖动卡片** | 拖拽至飞书、微信、访达、Obsidian 即刻分享；拖至废纸篓撕下丢弃 |
@@ -92,7 +98,7 @@
 ## 📦 下载与安装 (Installation)
 
 ### 方式 1：直接下载 DMG 安装包（推荐）
-1. 前往 [Releases 页面](https://github.com/km-open-lab/SunMemo/releases/latest) 下载最新版本的 `SunMemo-1.0.0.dmg`。
+1. 前往 [Releases 页面](https://github.com/km-open-lab/SunMemo/releases/latest) 下载最新版本的 `SunMemo-1.2.0.dmg`。
 2. 双击打开 DMG，将 **SunMemo.app** 拖动至 **Applications** 文件夹即可。
 3. 首次启动时，SunMemo 会弹出欢迎与使用引导卡片，按指引开启即可畅享。
 

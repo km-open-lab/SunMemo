@@ -118,11 +118,6 @@ final class GrabView: NSView, NSDraggingSource {
             onDiscard()
             return
         }
-        if event.clickCount == 2 {
-            downPoint = nil
-            onDoubleClick()
-            return
-        }
         downPoint = event.locationInWindow
         startedDrag = false
         didLongPress = false
@@ -162,7 +157,7 @@ final class GrabView: NSView, NSDraggingSource {
 
     override func mouseUp(with event: NSEvent) {
         endPress()
-        if downPoint != nil && !startedDrag && !didLongPress && event.clickCount == 1 { onClick() }
+        if downPoint != nil && !startedDrag && !didLongPress { onClick() }
         downPoint = nil
         didLongPress = false
     }

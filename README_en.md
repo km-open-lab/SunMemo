@@ -12,7 +12,7 @@
   <br><br>
   <strong>Local Data · No Accounts, No Analytics · Blazing Fast Native Swift · Compatible with macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
-  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 Download Latest DMG (v1.1.0)</strong></a>
+  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 Download Latest DMG (v1.2.0)</strong></a>
   &nbsp;·&nbsp;
   <a href="#-keyboard-shortcuts--gestures">Shortcuts</a>
   &nbsp;·&nbsp;
@@ -61,11 +61,16 @@
 - **Timestamped Archive**: Tearing off a note never deletes it permanently; it is neatly appended to `# 📦 Archived Memos` with exact creation and tear-off timestamps.
 - **Readable Anywhere**: Open the export in **Obsidian, Typora or VS Code** to read and search it; copy it first if you want to rework it.
 
-### 🔄 6. Automatic Update Checks & Preferences
+### 📳 6. MacBook Chassis Tap & Slap Detection
+- **Native Apple Silicon SPU HID Accelerometer**: Directly taps into the hardware motion sensor without requiring camera or microphone permissions.
+- **Three Physics-Based Tiers**: Light desk tap sways the clothesline with a shockwave ripple; quick double-tap (within 450ms) toggles the clothesline open or closed; hard chassis slap triggers a playful strong gust of wind.
+- **Anti-Misfire Protection**: High signal-to-noise filter (0.18g threshold) ensures normal keyboard typing never triggers motion; easily toggled on/off in Preferences and the menu bar.
+
+### 🔄 7. Automatic Update Checks & Preferences
 - Built-in GitHub Releases update checker notifies you unobtrusively in the menu bar whenever a new release arrives.
 - Dedicated preferences panel lets you customize global hotkeys and toggle clipboard auto-hang.
 
-### 🛡️ 7. Local-first, Private & Lightweight
+### 🛡️ 8. Local-first, Private & Lightweight
 - **Zero user accounts**, **zero tracking or analytics**, and **zero third-party SDKs**.
 - **The only network access is the update check**: on by default, it asks the GitHub Releases API (`api.github.com`) for the latest version at launch and every 24 hours, and never uploads memos or screenshots. Turn it off in Preferences → Software Updates.
 - Memos, screenshots and settings stay on your Mac. If iCloud Desktop & Documents is on, `~/Documents/SunMemo.md` syncs to iCloud along with the rest of Documents.
@@ -79,6 +84,7 @@
 | <kbd>⌃</kbd>&thinsp;<kbd>⌥</kbd>&thinsp;<kbd>␣</kbd> | **Reveal / Hide Clothesline** (Toggle the top clothesline down or up) |
 | <kbd>⌃</kbd>&thinsp;<kbd>⌥</kbd>&thinsp;<kbd>N</kbd> | **New Quick Memo** (Summon the floating note editor) |
 | <kbd>⌃</kbd>&thinsp;<kbd>⌥</kbd>&thinsp;<kbd>V</kbd> | **Hang Clipboard** (Pin copied text or image to the clothesline) |
+| **Tap MacBook Chassis** | **Chassis Motion Sensing** (Light tap sways rope, double tap toggles clothesline, slap triggers wind; toggleable in Preferences) |
 | **Click Memo Card** | Open full-size hero preview connected by the suspension tether |
 | **Click Todo Checkbox** | Toggle task status directly on the hanging card (`- [ ]` ↔ `- [x]`) |
 | **Drag Card** | Drag into Slack, WeChat, Finder, or Obsidian to share; drag to Trash to discard |
@@ -92,7 +98,7 @@
 ## 📦 Installation
 
 ### Option 1: Download DMG (Recommended)
-1. Head over to [GitHub Releases](https://github.com/km-open-lab/SunMemo/releases/latest) and download `SunMemo-1.1.0.dmg`.
+1. Head over to [GitHub Releases](https://github.com/km-open-lab/SunMemo/releases/latest) and download `SunMemo-1.2.0.dmg`.
 2. Open the DMG and drag **SunMemo.app** into your **Applications** folder.
 3. Launch SunMemo and follow the quick onboarding guide.
 

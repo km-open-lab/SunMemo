@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Self.shared = self
+        setupMainMenu()
         let host = NSHostingView(rootView: LineView(line: line))
         host.sizingOptions = []
         panel = LinePanel(content: host)
@@ -73,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     let _ = ClipboardWatcher.shared.hangCurrentClipboard()
                 }
             )
+            MotionDetector.shared.start(line: line)
         }
 
         for name in [Notification.Name.sunMemoRevealLine, Notification.Name.tendederoRevealLine] {
@@ -540,7 +542,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    @objc private func toggle() {
+    @objc func toggle() {
         if isRevealed {
             setRevealed(false)
             if line.liveCount == 0 {
@@ -793,6 +795,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return img
     }
 
+    private func setupMainMenu() {
+        let mainMenu = NSMenu()
+
+        // 1. App Menu
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: L("Quit SunMemo"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        // 2. Edit Menu (Standard macOS shortcuts: Undo, Redo, Cut, Copy, Paste, Select All)
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redoItem = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        redoItem.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        NSApp.mainMenu = mainMenu
+    }
+
     private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         let image = Self.makeMenuBarIcon()
@@ -838,6 +869,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         clearItem.isEnabled = line.liveCount > 0
         menu.addItem(clearItem)
+
+        let motionTitle = MotionDetector.shared.isEnabled ? "✓ 拍拍电脑物理感应 (已开启)" : "拍拍电脑物理感应 (已关闭)"
+        menu.addItem(ClosureMenuItem(motionTitle) {
+            MotionDetector.shared.isEnabled.toggle()
+        })
 
         menu.addItem(ClosureMenuItem("偏好设置与快捷键...") {
             SettingsWindowController.shared.show()

@@ -51,24 +51,3 @@
 "SunMemo already uses this shortcut for something else." = "SunMemo already uses this shortcut for something else.";
 "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already.";
 "A shortcut is already used by another app and does not work. Record a different one." = "A shortcut is already used by another app and does not work. Record a different one.";
-
-/* Demo tour (--demo) */
-"Hang your thoughts on the clothesline" = "Hang your thoughts on the clothesline";
-"Screenshots hang themselves on the line" = "Screenshots hang themselves on the line";
-"Jot a memo with ⌃⌥N" = "Jot a memo with ⌃⌥N";
-"This week's release" = "This week's release";
-"Screenshots hang themselves" = "Screenshots hang themselves";
-"Record the promo video" = "Record the promo video";
-"Ship v1.2" = "Ship v1.2";
-"Four colors, three shapes" = "Four colors, three shapes";
-"Idea" = "Idea";
-"A clothesline for everything you have not finished yet" = "A clothesline for everything you have not finished yet";
-"Weekend" = "Weekend";
-"Coffee by the window" = "Coffee by the window";
-"Bike along the coast" = "Bike along the coast";
-"Water the plants" = "Water the plants";
-"Hover and the cards make room" = "Hover and the cards make room";
-"Tick off to-dos right on the line" = "Tick off to-dos right on the line";
-"Click to take a card down and read it" = "Click to take a card down and read it";
-"Tear it off. The text stays in SunMemo.md" = "Tear it off. The text stays in SunMemo.md";
-"Push the pointer to the top edge to pull it down" = "Push the pointer to the top edge to pull it down";
