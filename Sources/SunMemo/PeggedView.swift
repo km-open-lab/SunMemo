@@ -623,85 +623,77 @@ struct MarkdownMemoCardBody: View {
     var typography: MemoTypographyConfig? = nil
     var cardHeight: CGFloat = 192
 
-    private var memoRatio: MemoAspectRatio {
-        MemoAspectRatio(rawValue: memo.aspectRatio) ?? .wide
-    }
-
     var body: some View {
         let config = typography ?? MemoTypography.config(for: memo.memoText)
         let lines = memo.memoText.components(separatedBy: "\n")
-        let layout = MemoCardLayout.textLayout(text: memo.memoText, cardHeight: cardHeight,
-                                             config: config, ratio: memoRatio)
-        let maxLines = layout.maxLines
-        let visibleLines = Array(lines.prefix(maxLines).enumerated())
-
-        VStack(alignment: .leading, spacing: config.lineSpacing) {
-            ForEach(visibleLines, id: \.offset) { index, rawLine in
-                let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
-                if trimmed.hasPrefix("- [ ] ") || trimmed.hasPrefix("* [ ] ") || trimmed.hasPrefix("[ ] ") {
-                    let content = String(trimmed.dropFirst(trimmed.hasPrefix("[ ] ") ? 4 : 6))
-                    HStack(alignment: .center, spacing: config.fontSize > 16 ? 7 : 5) {
-                        AnimatedTodoCheckbox(isChecked: false, size: config.todoBoxSize) {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: config.lineSpacing) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { index, rawLine in
+                    let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+                    if trimmed.hasPrefix("- [ ] ") || trimmed.hasPrefix("* [ ] ") || trimmed.hasPrefix("[ ] ") {
+                        let content = String(trimmed.dropFirst(trimmed.hasPrefix("[ ] ") ? 4 : 6))
+                        HStack(alignment: .center, spacing: config.fontSize > 16 ? 7 : 5) {
+                            AnimatedTodoCheckbox(isChecked: false, size: config.todoBoxSize) {
+                                line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
+                            }
+                            .accessibilityLabel(content)
+                            .accessibilityIdentifier("memo.todo.\(index)")
+                            AnimatedStrikethroughText(
+                                text: content,
+                                isStruck: false,
+                                font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
+                                lineLimit: 1
+                            )
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
                             line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
                         }
-                        .accessibilityLabel(content)
-                        .accessibilityIdentifier("memo.todo.\(index)")
+                    } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") ||
+                              trimmed.hasPrefix("* [x] ") || trimmed.hasPrefix("* [X] ") ||
+                              trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") {
+                        let content = String(trimmed.dropFirst(trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") ? 4 : 6))
+                        HStack(alignment: .center, spacing: config.fontSize > 16 ? 7 : 5) {
+                            AnimatedTodoCheckbox(isChecked: true, size: config.todoBoxSize) {
+                                line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
+                            }
+                            .accessibilityLabel(content)
+                            .accessibilityIdentifier("memo.todo.\(index)")
+                            AnimatedStrikethroughText(
+                                text: content,
+                                isStruck: true,
+                                font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
+                                lineLimit: 1
+                            )
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
+                        }
+                    } else if trimmed.hasPrefix("#") {
+                        let header = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
                         AnimatedStrikethroughText(
-                            text: content,
-                            isStruck: false,
+                            text: header,
+                            isStruck: memo.isDone,
+                            font: .system(size: max(12, config.fontSize), weight: .bold, design: .rounded),
+                            lineLimit: 1
+                        )
+                    } else {
+                        AnimatedStrikethroughText(
+                            text: trimmed,
+                            isStruck: memo.isDone,
                             font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
                             lineLimit: 1
                         )
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
-                    }
-                } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") ||
-                          trimmed.hasPrefix("* [x] ") || trimmed.hasPrefix("* [X] ") ||
-                          trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") {
-                    let content = String(trimmed.dropFirst(trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") ? 4 : 6))
-                    HStack(alignment: .center, spacing: config.fontSize > 16 ? 7 : 5) {
-                        AnimatedTodoCheckbox(isChecked: true, size: config.todoBoxSize) {
-                            line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
-                        }
-                        .accessibilityLabel(content)
-                        .accessibilityIdentifier("memo.todo.\(index)")
-                        AnimatedStrikethroughText(
-                            text: content,
-                            isStruck: true,
-                            font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
-                            lineLimit: 1
-                        )
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
-                    }
-                } else if trimmed.hasPrefix("#") {
-                    let header = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
-                    AnimatedStrikethroughText(
-                        text: header,
-                        isStruck: memo.isDone,
-                        font: .system(size: max(12, config.fontSize), weight: .bold, design: .rounded),
-                        lineLimit: 1
-                    )
-                } else {
-                    AnimatedStrikethroughText(
-                        text: trimmed,
-                        isStruck: memo.isDone,
-                        font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
-                        lineLimit: 1
-                    )
                 }
             }
-            if layout.showsMore {
-                Text("... 还有 \(lines.count - maxLines) 项")
-                    .font(.system(size: 9.5, weight: .regular))
-                    .foregroundStyle(Color.secondary.opacity(0.7))
-            }
+            .frame(maxWidth: .infinity, alignment: config.isSingleShortLine ? .center : .topLeading)
+            .padding(.trailing, 6)
+            .padding(.bottom, 12)
         }
-        .frame(maxWidth: .infinity, alignment: config.isSingleShortLine ? .center : .topLeading)
+        .frame(maxHeight: max(1, cardHeight - MemoCardLayout.headerHeight - 46))
+        .accessibilityIdentifier("memo.scrollableBody")
     }
 }
 

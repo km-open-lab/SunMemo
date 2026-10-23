@@ -226,7 +226,7 @@ struct CardCheckView: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Text("点击第一条待办，再点击右上角撕下")
+            Text("滚动勾选第八条待办，再点击右上角撕下")
                 .font(.system(size: 13))
             if let memo = line.items.first(where: { !$0.falling }) {
                 PeggedView(item: memo, line: line)
@@ -241,7 +241,7 @@ struct CardCheckView: View {
 @MainActor
 func runCardCheck() async {
     let line = Line()
-    line.addMemo(text: "- [ ] 练境脚本\n- [ ] grokbot 剪辑", color: "yellow", aspectRatio: "tall")
+    line.addMemo(text: (1...8).map { "- [ ] 待办第\($0)项" }.joined(separator: "\n"), color: "yellow", aspectRatio: "wide")
     let window = NSWindow(contentRect: NSRect(x: 300, y: 300, width: 360, height: 360),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
     window.title = "Memo Card Check"
@@ -252,9 +252,9 @@ func runCardCheck() async {
     var toggled = false
     for _ in 0..<1800 {
         await pause(0.1)
-        if let memo = line.items.first, memo.memoText.hasPrefix("- [x]") && !toggled {
+        if let memo = line.items.first, memo.memoText.components(separatedBy: "\n").last == "- [x] 待办第8项" && !toggled {
             check(!memo.falling && !MemoPreviewWindowController.shared.isOpen,
-                  "first todo toggles without taking down the card or opening its preview")
+                  "eighth todo toggles after scrolling without taking down the card or opening its preview")
             toggled = true
         }
         if toggled && (line.items.isEmpty || line.items.first?.falling == true) {
