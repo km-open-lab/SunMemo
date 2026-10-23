@@ -49,3 +49,10 @@
 "SunMemo already uses this shortcut for something else." = "SunMemo ya usa este atajo para otra cosa.";
 "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS rechazó este atajo, así que se mantiene el anterior. Probablemente otra app ya lo usa.";
 "A shortcut is already used by another app and does not work. Record a different one." = "Otra app ya usa un atajo y no funciona. Graba uno distinto.";
+
+// Motion sensor availability
+"Checking the motion sensor…" = "Comprobando el sensor de movimiento…";
+"Motion sensor found; waiting for data…" = "Sensor de movimiento detectado; esperando datos…";
+"Motion sensor connected and receiving data" = "Sensor de movimiento conectado y recibiendo datos";
+"No accessible motion sensor. Use the shortcut or menu to open the line." = "No hay un sensor de movimiento accesible. Usa el atajo o el menú para abrir el tendedero.";
+"The motion sensor is not sending data. Use the shortcut or menu to open the line." = "El sensor de movimiento no envía datos. Usa el atajo o el menú para abrir el tendedero.";

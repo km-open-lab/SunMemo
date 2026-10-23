@@ -1,6 +1,13 @@
 import AppKit
 import SwiftUI
 
+/// Borderless panels cannot become key by default. This preview also hosts
+/// the memo editor, whose NSTextView needs a key window to receive typing.
+final class MemoPreviewPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
 @MainActor
 final class MemoPreviewWindowController {
     static let shared = MemoPreviewWindowController()
@@ -69,7 +76,7 @@ final class MemoPreviewWindowController {
         )
 
         let hosting = NSHostingView(rootView: previewView)
-        let win = NSPanel(
+        let win = MemoPreviewPanel(
             contentRect: screen.frame,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -95,7 +102,7 @@ final class MemoPreviewWindowController {
 
         // Keyboard handler for Esc, Space, and Enter: all close routes follow animated dismissal
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.panel != nil else { return event }
+            guard let self, let panel = self.panel, event.window === panel else { return event }
             if self.isEditingActive {
                 if event.keyCode == 53 /* Esc */ {
                     self.cancelEditing?()
@@ -169,6 +176,9 @@ final class MemoPreviewWindowController {
         panel?.orderOut(nil)
         panel = nil
         dismissAction = nil
+        triggerInPlaceEdit = nil
+        cancelEditing = nil
+        isEditingActive = false
         isClosing = false
     }
 }

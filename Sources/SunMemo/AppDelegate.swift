@@ -874,6 +874,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(ClosureMenuItem(motionTitle) {
             MotionDetector.shared.isEnabled.toggle()
         })
+        let motionStatus = NSMenuItem(title: MotionDetector.shared.statusMessage, action: nil, keyEquivalent: "")
+        motionStatus.isEnabled = false
+        menu.addItem(motionStatus)
 
         menu.addItem(ClosureMenuItem("偏好设置与快捷键...") {
             SettingsWindowController.shared.show()

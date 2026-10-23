@@ -1,0 +1,123 @@
+import AppKit
+
+// Runs the real controllers with Demo's isolated defaults and files. It never
+// launches AppDelegate, watchers, update checks or global shortcut registration.
+@MainActor
+func check(_ condition: @autoclosure () -> Bool, _ message: String) {
+    guard condition() else {
+        fputs("FAIL: \(message)\n", stderr)
+        Demo.cleanUp()
+        exit(1)
+    }
+    print("PASS: \(message)")
+}
+
+@MainActor
+func pause(_ seconds: Double = 0.15) async {
+    try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+}
+
+@MainActor
+func editor(in window: NSWindow) -> CustomNSTextView? {
+    func find(_ view: NSView) -> CustomNSTextView? {
+        if let text = view as? CustomNSTextView { return text }
+        return view.subviews.lazy.compactMap(find).first
+    }
+    return window.contentView.flatMap(find)
+}
+
+@MainActor
+func key(_ window: NSWindow, code: UInt16, text: String, modifiers: NSEvent.ModifierFlags = []) {
+    let event = NSEvent.keyEvent(with: .keyDown, location: .zero,
+                                modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
+                                windowNumber: window.windowNumber, context: nil,
+                                characters: text, charactersIgnoringModifiers: text,
+                                isARepeat: false, keyCode: code)!
+    NSApp.sendEvent(event)
+}
+
+@MainActor
+func runRegression() async {
+    let originalPanel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
+                                backing: .buffered, defer: false)
+    check(!originalPanel.canBecomeKey, "original borderless panel reproduces keyboard-focus defect")
+
+    let line = Line()
+    line.addMemo(text: "测试1\n- [ ] 原有待办", color: "yellow", aspectRatio: "wide")
+    let id = line.items.first!.id
+    let controller = MemoPreviewWindowController.shared
+
+    // A direct edit request takes the same route as the card's edit action.
+    QuickMemoWindowController.shared.show(line: line, editingMemoID: id)
+    await pause(0.8)
+    let panel = NSApp.windows.compactMap { $0 as? MemoPreviewPanel }.first { $0.isVisible }!
+    let textView = editor(in: panel)!
+    check(panel.isKeyWindow && panel.firstResponder === textView, "existing memo editor receives keyboard focus")
+    check(textView.string == "测试1\n- [ ] 原有待办", "existing text is retained when reopening")
+    textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
+    key(panel, code: 0, text: "a")
+    await pause()
+    check(textView.string.hasSuffix("a"), "keyboard event inserts text into existing memo")
+    textView.setMarkedText("中文", selectedRange: NSRange(location: 2, length: 0),
+                           replacementRange: NSRange(location: NSNotFound, length: 0))
+    textView.insertText("中文", replacementRange: NSRange(location: NSNotFound, length: 0))
+    await pause()
+    check(textView.string.hasSuffix("a中文"), "Chinese marked-text composition commits correctly")
+    key(panel, code: 36, text: "\r")
+    await pause()
+    check(textView.string.hasSuffix("\n- [ ] "), "Return continues the checklist")
+    key(panel, code: 11, text: "b")
+    await pause()
+    let expected = textView.string
+    key(panel, code: 36, text: "\r", modifiers: .command)
+    await pause(1.8)
+    check(!controller.isOpen, "Command-Return saves and dismisses existing memo")
+    check(line.items.first { $0.id == id }?.memoText == expected, "keyboard edits reach the saved memo")
+    let restored = Line()
+    check(restored.items.first { $0.id == id }?.memoText == expected, "edits survive persistence reload")
+
+    // Enter from the read-only preview must transfer focus into its new editor.
+    controller.show(line: line, itemID: id)
+    await pause(0.8)
+    let preview = NSApp.windows.compactMap { $0 as? MemoPreviewPanel }.first { $0.isVisible }!
+    key(preview, code: 36, text: "\r")
+    await pause()
+    let reopened = editor(in: preview)!
+    check(preview.firstResponder === reopened, "Enter from preview focuses the in-place editor")
+    reopened.setSelectedRange(NSRange(location: (reopened.string as NSString).length, length: 0))
+    key(preview, code: 8, text: "c")
+    await pause()
+    check(reopened.string.hasSuffix("bc"), "typing still works on a second edit")
+    key(preview, code: 36, text: "\r", modifiers: .command)
+    await pause(1.8)
+    check(line.items.first { $0.id == id }?.memoText.hasSuffix("bc") == true, "second edit is saved")
+
+    QuickMemoWindowController.shared.show(line: line)
+    await pause()
+    let newWindow = NSApp.keyWindow!
+    let newText = editor(in: newWindow)!
+    key(newWindow, code: 0, text: "a")
+    await pause()
+    check(newText.string == "a", "new memo keyboard input remains functional")
+    key(newWindow, code: 36, text: "\r", modifiers: .command)
+    await pause()
+    check(line.items.contains { $0.memoText == "a" }, "new memo can still be saved")
+
+    let detector = MotionDetector.shared
+    detector.start(line: line)
+    await pause(5.5)
+    check(detector.sensorStatus != .checking && detector.sensorStatus != .waitingForSamples,
+          "motion detection reports hardware outcome instead of only the enabled switch")
+    print("Hardware status: \(detector.statusMessage)")
+    Demo.cleanUp()
+    print("All regressions passed. Test data was isolated and removed.")
+    exit(0)
+}
+
+guard CommandLine.arguments.contains("--demo") else {
+    fatalError("Regression runner requires --demo to isolate all test data")
+}
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+Task { @MainActor in await runRegression() }
+app.run()

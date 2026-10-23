@@ -184,6 +184,9 @@ struct SettingsView: View {
                     }
                 }
                 .toggleStyle(.checkbox)
+                Text(motionDetector.statusMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
             .padding(12)
             .background(Color(NSColor.controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))

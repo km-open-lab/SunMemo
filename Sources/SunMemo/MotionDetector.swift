@@ -17,28 +17,44 @@ private let kFieldZ: UInt32 = (13 << 16) | 2
 private typealias IOHIDEventGetFloatValueFunc = @convention(c) (UnsafeMutableRawPointer?, UInt32) -> Double
 private var globalGetFloatValue: IOHIDEventGetFloatValueFunc?
 
+@MainActor
 final class MotionDetector: ObservableObject {
     static let shared = MotionDetector()
 
+    enum SensorStatus: Equatable {
+        case checking, waitingForSamples, receiving, unavailable, noSamples
+    }
+
+    @Published private(set) var sensorStatus: SensorStatus = .checking
+
+    var statusMessage: String {
+        switch sensorStatus {
+        case .checking: return L("Checking the motion sensor…")
+        case .waitingForSamples: return L("Motion sensor found; waiting for data…")
+        case .receiving: return L("Motion sensor connected and receiving data")
+        case .unavailable: return L("No accessible motion sensor. Use the shortcut or menu to open the line.")
+        case .noSamples: return L("The motion sensor is not sending data. Use the shortcut or menu to open the line.")
+        }
+    }
+
     @Published var isEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(isEnabled, forKey: "motionTapEnabled")
-            if !isEnabled {
-                pendingSingleTapWorkItem?.cancel()
-                pendingSingleTapWorkItem = nil
-            }
+            Demo.defaults.set(isEnabled, forKey: "motionTapEnabled")
+            pendingSingleTapWorkItem?.cancel()
+            pendingSingleTapWorkItem = nil
+            lastTapTime = 0
+            hasInitialized = false
         }
     }
 
     private weak var line: Line?
     private var isRunning = false
-    private var client: UnsafeMutableRawPointer?
 
     init() {
-        if UserDefaults.standard.object(forKey: "motionTapEnabled") == nil {
+        if Demo.defaults.object(forKey: "motionTapEnabled") == nil {
             self.isEnabled = true
         } else {
-            self.isEnabled = UserDefaults.standard.bool(forKey: "motionTapEnabled")
+            self.isEnabled = Demo.defaults.bool(forKey: "motionTapEnabled")
         }
     }
 
@@ -127,9 +143,16 @@ final class MotionDetector: ObservableObject {
         }.start()
     }
 
-    private func runSensorLoop() {
+    nonisolated private func reportStatus(_ status: SensorStatus) {
+        DispatchQueue.main.async { [weak self] in
+            self?.sensorStatus = status
+        }
+    }
+
+    nonisolated private func runSensorLoop() {
         guard let iokit = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW) else {
             motionLog.info("IOKit not available for motion detection")
+            reportStatus(.unavailable)
             return
         }
 
@@ -141,6 +164,7 @@ final class MotionDetector: ObservableObject {
               let schedSym = dlsym(iokit, "IOHIDEventSystemClientScheduleWithRunLoop"),
               let getFloatSym = dlsym(iokit, "IOHIDEventGetFloatValue") else {
             motionLog.info("SPU HID functions not found in IOKit")
+            reportStatus(.unavailable)
             return
         }
 
@@ -154,9 +178,9 @@ final class MotionDetector: ObservableObject {
 
         guard let client = clientCreate(kCFAllocatorDefault) else {
             motionLog.info("Could not create IOHIDEventSystemClient")
+            reportStatus(.unavailable)
             return
         }
-        self.client = client
 
         // Match AppleSPUHIDDevice Accelerometer (UsagePage 0xFF00, Usage 3)
         let matchDict: [String: Any] = [
@@ -168,13 +192,19 @@ final class MotionDetector: ObservableObject {
         if let services = copyServices(client) as? [Any], let service = services.first {
             let servicePtr = Unmanaged<AnyObject>.passUnretained(service as AnyObject).toOpaque()
             // Request 100Hz updates (10,000 microseconds)
-            _ = setProperty(servicePtr, "ReportInterval" as CFString, 10000 as CFNumber)
-            motionLog.info("Activated Apple Silicon Accelerometer at 100Hz")
+            let accepted = setProperty(servicePtr, "ReportInterval" as CFString, 10000 as CFNumber)
+            motionLog.info("Found accelerometer; 100Hz request accepted: \(accepted)")
         } else {
             motionLog.info("No Apple SPU Accelerometer found (may be non-laptop or external)")
+            reportStatus(.unavailable)
             return
         }
 
+        reportStatus(.waitingForSamples)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            guard let self, self.sensorStatus == .waitingForSamples else { return }
+            self.sensorStatus = .noSamples
+        }
         globalGetFloatValue = getFloatValue
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
@@ -184,7 +214,11 @@ final class MotionDetector: ObservableObject {
             let x = getFloat(event, kFieldX)
             let y = getFloat(event, kFieldY)
             let z = getFloat(event, kFieldZ)
-            detector.processSample(x: x, y: y, z: z)
+            // App state, gesture state and pending actions all belong to the
+            // main thread. Never read the UI's enabled switch on the HID thread.
+            DispatchQueue.main.async {
+                detector.processSample(x: x, y: y, z: z)
+            }
         }, nil, selfPtr)
 
         scheduleRunLoop(client, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
@@ -192,6 +226,7 @@ final class MotionDetector: ObservableObject {
     }
 
     private func processSample(x: Double, y: Double, z: Double) {
+        if sensorStatus != .receiving { sensorStatus = .receiving }
         guard isEnabled else { return }
         if !hasInitialized {
             hasInitialized = true
@@ -215,12 +250,11 @@ final class MotionDetector: ObservableObject {
 
         if delta >= kHardSlapThreshold {
             lastImpactTime = now
+            lastTapTime = 0
             pendingSingleTapWorkItem?.cancel()
             pendingSingleTapWorkItem = nil
 
-            DispatchQueue.main.async { [weak self] in
-                self?.line?.triggerHardSlap()
-            }
+            line?.triggerHardSlap()
         } else if delta >= kTapThreshold {
             lastImpactTime = now
             let timeSinceLastTap = now - lastTapTime
@@ -231,9 +265,7 @@ final class MotionDetector: ObservableObject {
                 pendingSingleTapWorkItem?.cancel()
                 pendingSingleTapWorkItem = nil
 
-                DispatchQueue.main.async {
-                    AppDelegate.shared?.toggle()
-                }
+                AppDelegate.shared?.toggle()
             } else {
                 // First tap: schedule pending single tap
                 lastTapTime = now
@@ -241,13 +273,14 @@ final class MotionDetector: ObservableObject {
 
                 let intensity = min(max(delta / 0.28, 0.8), 2.2)
                 let work = DispatchWorkItem { [weak self] in
-                    Task { @MainActor in
-                        self?.line?.triggerTapShock(intensity: intensity)
+                    MainActor.assumeIsolated {
+                        guard let self, self.isEnabled else { return }
+                        self.line?.triggerTapShock(intensity: intensity)
                     }
                 }
                 pendingSingleTapWorkItem = work
-                // Dwell 320ms to distinguish from double tap
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.32, execute: work)
+                // Wait for the entire double-tap window before emitting a single tap.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.48, execute: work)
             }
         }
     }

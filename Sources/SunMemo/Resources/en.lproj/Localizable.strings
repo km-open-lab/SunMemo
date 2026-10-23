@@ -51,3 +51,10 @@
 "SunMemo already uses this shortcut for something else." = "SunMemo already uses this shortcut for something else.";
 "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already.";
 "A shortcut is already used by another app and does not work. Record a different one." = "A shortcut is already used by another app and does not work. Record a different one.";
+
+// Motion sensor availability
+"Checking the motion sensor…" = "Checking the motion sensor…";
+"Motion sensor found; waiting for data…" = "Motion sensor found; waiting for data…";
+"Motion sensor connected and receiving data" = "Motion sensor connected and receiving data";
+"No accessible motion sensor. Use the shortcut or menu to open the line." = "No accessible motion sensor. Use the shortcut or menu to open the line.";
+"The motion sensor is not sending data. Use the shortcut or menu to open the line." = "The motion sensor is not sending data. Use the shortcut or menu to open the line.";

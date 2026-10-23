@@ -49,3 +49,10 @@
 "SunMemo already uses this shortcut for something else." = "SunMemo 已经把这个快捷键用在别的功能上了。";
 "macOS refused this shortcut, so the previous one is kept. Another app probably uses it already." = "macOS 拒绝了这个快捷键，已保留原来的设置。可能已有其他应用在使用它。";
 "A shortcut is already used by another app and does not work. Record a different one." = "有快捷键已被其他应用占用，目前不起作用。请换一个重新录制。";
+
+// Motion sensor availability
+"Checking the motion sensor…" = "正在检测运动传感器…";
+"Motion sensor found; waiting for data…" = "已找到运动传感器，正在等待数据…";
+"Motion sensor connected and receiving data" = "运动传感器已连接，正在接收数据";
+"No accessible motion sensor. Use the shortcut or menu to open the line." = "未检测到可访问的运动传感器，可使用快捷键或菜单唤出晾衣绳。";
+"The motion sensor is not sending data. Use the shortcut or menu to open the line." = "运动传感器尚未传回数据，可使用快捷键或菜单唤出晾衣绳。";

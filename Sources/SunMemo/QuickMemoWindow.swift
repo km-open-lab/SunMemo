@@ -715,6 +715,7 @@ struct MacTextEditor: NSViewRepresentable {
         textView.backgroundColor = .clear
         textView.delegate = context.coordinator
         textView.isRichText = false
+        textView.allowsUndo = true
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
@@ -737,15 +738,13 @@ struct MacTextEditor: NSViewRepresentable {
 
         scrollView.documentView = textView
 
-        DispatchQueue.main.async {
-            textView.window?.makeFirstResponder(textView)
-        }
-
         return scrollView
     }
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? CustomNSTextView else { return }
+        context.coordinator.parent = self
+        textView.onCmdReturn = onCommit
         if textView.string != text {
             textView.string = text
             textView.needsDisplay = true
@@ -766,6 +765,16 @@ struct MacTextEditor: NSViewRepresentable {
 final class CustomNSTextView: NSTextView {
     var placeholderString: String = ""
     var onCmdReturn: (() -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // SwiftUI may create this view before attaching it to the panel.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let window = self.window else { return }
+            window.makeKey()
+            window.makeFirstResponder(self)
+        }
+    }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
