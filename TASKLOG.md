@@ -1,5 +1,14 @@
 # 项目进度记录
 
+## 2026-10-23 20:27（Asia/Taipei）— v1.2.1 正式发布，验证旧版更新通知
+
+- 用户授权：发布 GitHub 新版本并让已安装用户收到更新提示。
+- 完成结果：源码推送到 `origin/main`；附注标签 `v1.2.1`（非 GPG 签名）指向 `d7a3690`；正式 Release 已设为 latest：https://github.com/km-open-lab/SunMemo/releases/tag/v1.2.1 。附件为 `SunMemo-1.2.1.dmg`（3,204,937 bytes）。
+- 发布校验：DMG 校验和通过；挂载确认版本 1.2.1、Applications 链接及 app 二进制与构建一致，通用 arm64／x86_64 与 codesign 完整性校验通过。公开 latest API 已返回 v1.2.1、正式版状态和正确附件；重新从公开 URL 下载后的 SHA-256 与本地一致：`4ca72c5ba439b042499d6d2eef8714f88c38e9dc41cdaa91a282d018439e5595`。
+- 老用户通知验证：启动本机已安装 v1.2.0，实际观察到「发现 SunMemo 新版本 v1.2.1」弹窗及新发布说明、下载安装按钮。默认启动检查与每 24 小时检查继续生效；无服务端实时推送、无静默安装，关闭自动检查的用户需手动检查，不能声称全部用户已接收。
+- 安装边界：发布包是 ad hoc 签名、无 Developer ID／Apple 公证，已在发布说明说明安全提示限制。本机更新时 CUA 连续报告用户正在操作应用，故保留当前编辑窗口，未覆盖 `/Applications/SunMemo.app`；仍为 1.2.0，可通过更新提示安装。没有修改用户便签、草稿或字号设置。
+- Git／文件边界：保留他人未提交的 `scripts/make-dmg.sh` 修改；Release 资产仅包含本轮构建，未执行该脚本的 Finder AppleScript 或 Homebrew tap 更新。
+
 ## 2026-10-23 20:25（Asia/Taipei）— v1.2.1 发布准备与已安装用户更新机制核查
 
 - 用户授权：「发布新版本到GitHub 并推送给已安装用户」。
