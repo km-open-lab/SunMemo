@@ -56,3 +56,8 @@
 "Motion sensor connected and receiving data" = "Sensor de movimiento conectado y recibiendo datos";
 "No accessible motion sensor. Use the shortcut or menu to open the line." = "No hay un sensor de movimiento accesible. Usa el atajo o el menú para abrir el tendedero.";
 "The motion sensor is not sending data. Use the shortcut or menu to open the line." = "El sensor de movimiento no envía datos. Usa el atajo o el menú para abrir el tendedero.";
+
+// Native memo window controls
+"Close Memo" = "Cerrar nota";
+"Minimize Memo" = "Minimizar nota";
+"Maximize or Restore Memo" = "Maximizar o restaurar nota";

@@ -1,10 +1,52 @@
 import AppKit
 import SwiftUI
 
-/// The editor draws its own rounded frame and close button.
+/// The editor draws its own rounded frame and embeds native window controls.
 final class QuickMemoPanel: NSPanel {
+    private var frameBeforeZoom: NSRect?
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func zoom(_ sender: Any?) {
+        if let previous = frameBeforeZoom {
+            frameBeforeZoom = nil
+            setFrame(previous, display: true, animate: true)
+        } else if let visible = screen?.visibleFrame {
+            frameBeforeZoom = frame
+            setFrame(visible, display: true, animate: true)
+        }
+    }
+
+    func resetZoom() { frameBeforeZoom = nil }
+}
+
+private struct MemoWindowControls: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 62, height: 16))
+        let mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+        for (index, type) in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].enumerated() {
+            guard let button = NSWindow.standardWindowButton(type, for: mask) else { continue }
+            button.frame = NSRect(x: index * 22, y: 1, width: 14, height: 14)
+            button.identifier = NSUserInterfaceItemIdentifier(["memo.close", "memo.minimize", "memo.zoom"][index])
+            button.setAccessibilityLabel([L("Close Memo"), L("Minimize Memo"), L("Maximize or Restore Memo")][index])
+            button.target = context.coordinator
+            button.action = [#selector(Coordinator.close(_:)), #selector(Coordinator.minimize(_:)),
+                             #selector(Coordinator.zoom(_:))][index]
+            view.addSubview(button)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        @objc func close(_ sender: NSButton) { QuickMemoWindowController.shared.close() }
+        @objc func minimize(_ sender: NSButton) { sender.window?.miniaturize(sender) }
+        @objc func zoom(_ sender: NSButton) { sender.window?.zoom(sender) }
+    }
 }
 
 private struct MemoWindowDragArea: NSViewRepresentable {
@@ -71,6 +113,7 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
         if let window {
             // Already editing this one: bring it back with what you typed.
             if editingMemoID == self.editingMemoID {
+                if window.isMiniaturized { window.deminiaturize(nil) }
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
                 return
@@ -117,11 +160,10 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
         let hosting = NSHostingView(rootView: view)
         let win = QuickMemoPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
-            styleMask: [.borderless, .resizable],
+            styleMask: [.borderless, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false
         )
-        win.minSize = NSSize(width: 360, height: 260)
-        win.maxSize = NSSize(width: 1200, height: 1000)
+        win.minSize = NSSize(width: 380, height: 340)
         win.isMovableByWindowBackground = false
         win.isFloatingPanel = true
         win.hidesOnDeactivate = false
@@ -224,6 +266,7 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
 
     func resizeWindow(to size: CGSize) {
         guard let window else { return }
+        (window as? QuickMemoPanel)?.resetZoom()
         var frame = window.frame
         let oldCenter = CGPoint(x: frame.midX, y: frame.midY)
         frame.size = size
@@ -359,7 +402,11 @@ struct QuickMemoView: View {
     var body: some View {
         VStack(spacing: 0) {
             // MARK: Top Bar (Header & Controls)
-            HStack(alignment: .center) {
+            HStack(alignment: .center, spacing: 10) {
+                if isStandalone {
+                    MemoWindowControls()
+                        .frame(width: 62, height: 16)
+                }
                 HStack(spacing: 6) {
                     Image(systemName: "note.text")
                         .font(.system(size: 14, weight: .semibold))
@@ -367,9 +414,14 @@ struct QuickMemoView: View {
                     Text(editingID == nil ? "写下想法 / 待办备忘" : "编辑便签")
                         .font(.system(size: 13.5, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
+                        .lineLimit(1)
                 }
-
-                Spacer()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay {
+                    if isStandalone {
+                        MemoWindowDragArea().accessibilityHidden(true)
+                    }
+                }
 
                 HStack(alignment: .center, spacing: 14) {
                     // Color selection buttons (real buttons so clicks are 100% responsive)
@@ -399,24 +451,18 @@ struct QuickMemoView: View {
                         }
                     }
 
-                    // Close button
-                    Button {
-                        onCancel()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color.secondary.opacity(0.7))
+                    if !isStandalone {
+                        Button {
+                            onCancel()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color.secondary.opacity(0.7))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-            .overlay(alignment: .leading) {
-                if isStandalone {
-                    // Keep the color and close buttons fully interactive.
-                    MemoWindowDragArea()
-                        .padding(.trailing, 150)
-                        .accessibilityHidden(true)
-                }
+                .fixedSize()
             }
             .padding(.horizontal, 18)
             .padding(.top, 14)
@@ -479,35 +525,6 @@ struct QuickMemoView: View {
 
                 Spacer()
 
-                // Aspect Ratio Selector Pills [▭ 宽版] [□ 方版] [▯ 竖版]
-                HStack(spacing: 2) {
-                    ForEach(MemoAspectRatio.allCases, id: \.rawValue) { ratio in
-                        Button {
-                            withAnimation(Motion.snappy) {
-                                aspectRatio = ratio.rawValue
-                            }
-                            QuickMemoWindowController.shared.resizeWindow(to: ratio.editorWindowSize)
-                        } label: {
-                            HStack(spacing: 3) {
-                                Text(ratio.symbol)
-                                    .font(.system(size: 9.5, weight: .bold))
-                                Text(ratio.title)
-                                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(
-                                aspectRatio == ratio.rawValue ? Color.black.opacity(0.12) : Color.white.opacity(0.4),
-                                in: RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            )
-                            .foregroundStyle(aspectRatio == ratio.rawValue ? Color.primary : Color.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(2)
-                .background(Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-
                 // Edit vs Preview Segmented Toggle
                 Picker("", selection: $isPreviewMode) {
                     Text("编辑").tag(false)
@@ -516,8 +533,14 @@ struct QuickMemoView: View {
                 .pickerStyle(.segmented)
                 .frame(width: 105)
             }
+            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 18)
             .padding(.bottom, 8)
+
+            aspectRatioSelector
+                .padding(.horizontal, 18)
+                .padding(.bottom, 10)
 
             // MARK: Large Editor or Markdown Preview
             Group {
@@ -540,11 +563,13 @@ struct QuickMemoView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // MARK: Bottom Action Bar
-            HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     Text(editingID == nil ? "⌘ + Return 挂上 · Esc 取消" : "⌘ + Return 保存并飞回 · Esc 取消")
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(Color.secondary.opacity(0.85))
+
+                    Spacer(minLength: 4)
 
                     Button {
                         MemoSyncManager.shared.openInEditor()
@@ -556,10 +581,10 @@ struct QuickMemoView: View {
                     }
                     .buttonStyle(.plain)
                 }
-
-                Spacer()
+                .lineLimit(1)
 
                 HStack(spacing: 12) {
+                    Spacer()
                     Button("取消") {
                         onCancel()
                     }
@@ -617,6 +642,44 @@ struct QuickMemoView: View {
         .onChange(of: text) { _ in onEdit(text, color, aspectRatio) }
         .onChange(of: color) { _ in onEdit(text, color, aspectRatio) }
         .onChange(of: aspectRatio) { _ in onEdit(text, color, aspectRatio) }
+    }
+
+    private var aspectRatioSelector: some View {
+        HStack(spacing: 5) {
+            ForEach(MemoAspectRatio.allCases, id: \.rawValue) { ratio in
+                let selected = aspectRatio == ratio.rawValue
+                Button {
+                    withAnimation(Motion.snappy) { aspectRatio = ratio.rawValue }
+                    if isStandalone {
+                        QuickMemoWindowController.shared.resizeWindow(to: ratio.editorWindowSize)
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .stroke(lineWidth: 1.5)
+                            .frame(width: ratio == .wide ? 16 : ratio == .square ? 12 : 9,
+                                   height: ratio == .wide ? 10 : 12)
+                        Text(ratio.title)
+                            .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        Text(ratio == .wide ? "16:10" : ratio == .square ? "1:1" : "3:4")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .opacity(selected ? 0.8 : 0.6)
+                    }
+                    .lineLimit(1)
+                    .fixedSize()
+                    .frame(maxWidth: .infinity, minHeight: 32)
+                    .foregroundStyle(selected ? Color.white : Color.primary)
+                    .background(selected ? Color.black.opacity(0.8) : Color.white.opacity(0.55),
+                                in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(ratio.subtitle)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+                .help(ratio.subtitle)
+            }
+        }
+        .padding(3)
+        .background(Color.black.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private func commit() {
@@ -879,41 +942,23 @@ final class CustomNSTextView: NSTextView {
         let lineString = currentString.substring(with: lineRange)
         let trimmed = lineString.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if trimmed.hasPrefix("- [ ] ") {
-            if trimmed == "- [ ]" || trimmed == "- [ ] " {
-                let replaceLen = min(lineString.count, selectedRange.location - lineRange.location)
-                let replaceRange = NSRange(location: lineRange.location, length: replaceLen)
-                if shouldChangeText(in: replaceRange, replacementString: "") {
-                    replaceCharacters(in: replaceRange, with: "")
-                }
-                super.insertNewline(sender)
-                return
-            } else {
-                super.insertNewline(sender)
-                insertText("- [ ] ", replacementRange: self.selectedRange())
-                return
-            }
-        } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") {
+        let contentLength = (lineString.trimmingCharacters(in: .newlines) as NSString).length
+        let emptyMarkers = ["-", "*", "- [ ]", "- [x]", "- [X]", "* [ ]", "* [x]", "* [X]"]
+        if emptyMarkers.contains(trimmed), selectedRange.length == 0,
+           selectedRange.location == lineRange.location + contentLength {
+            insertText("", replacementRange: NSRange(location: lineRange.location, length: contentLength))
             super.insertNewline(sender)
-            insertText("- [ ] ", replacementRange: self.selectedRange())
             return
-        } else if trimmed.hasPrefix("- ") && !trimmed.hasPrefix("- [") {
-            if trimmed == "-" || trimmed == "- " {
-                let replaceLen = min(lineString.count, selectedRange.location - lineRange.location)
-                let replaceRange = NSRange(location: lineRange.location, length: replaceLen)
-                if shouldChangeText(in: replaceRange, replacementString: "") {
-                    replaceCharacters(in: replaceRange, with: "")
-                }
-                super.insertNewline(sender)
-                return
-            } else {
-                super.insertNewline(sender)
-                insertText("- ", replacementRange: self.selectedRange())
-                return
-            }
         }
 
+        let marker = trimmed.hasPrefix("* ") ? "*" : "-"
+        let checklist = ["\(marker) [ ] ", "\(marker) [x] ", "\(marker) [X] "].contains { trimmed.hasPrefix($0) }
         super.insertNewline(sender)
+        if checklist {
+            insertText("\(marker) [ ] ", replacementRange: self.selectedRange())
+        } else if trimmed.hasPrefix("\(marker) ") && !trimmed.hasPrefix("\(marker) [") {
+            insertText("\(marker) ", replacementRange: self.selectedRange())
+        }
     }
 
     override func draw(_ dirtyRect: NSRect) {

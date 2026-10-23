@@ -58,3 +58,8 @@
 "Motion sensor connected and receiving data" = "Motion sensor connected and receiving data";
 "No accessible motion sensor. Use the shortcut or menu to open the line." = "No accessible motion sensor. Use the shortcut or menu to open the line.";
 "The motion sensor is not sending data. Use the shortcut or menu to open the line." = "The motion sensor is not sending data. Use the shortcut or menu to open the line.";
+
+// Native memo window controls
+"Close Memo" = "Close Memo";
+"Minimize Memo" = "Minimize Memo";
+"Maximize or Restore Memo" = "Maximize or Restore Memo";

@@ -56,3 +56,8 @@
 "Motion sensor connected and receiving data" = "运动传感器已连接，正在接收数据";
 "No accessible motion sensor. Use the shortcut or menu to open the line." = "未检测到可访问的运动传感器，可使用快捷键或菜单唤出晾衣绳。";
 "The motion sensor is not sending data. Use the shortcut or menu to open the line." = "运动传感器尚未传回数据，可使用快捷键或菜单唤出晾衣绳。";
+
+// Native memo window controls
+"Close Memo" = "关闭便签";
+"Minimize Memo" = "最小化便签";
+"Maximize or Restore Memo" = "最大化或还原便签";
