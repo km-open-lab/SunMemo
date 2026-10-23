@@ -61,3 +61,9 @@
 "Close Memo" = "Cerrar nota";
 "Minimize Memo" = "Minimizar nota";
 "Maximize or Restore Memo" = "Maximizar o restaurar nota";
+
+// Memo text size and separate take-down control
+"Font Size" = "Tamaño";
+"Memo Font Size" = "Tamaño de texto de las notas";
+"Applies to all memos and remembers your last choice (12–24 pt)." = "Se aplica a todas las notas y recuerda tu elección (12–24 pt).";
+"Take Down Memo" = "Retirar nota";

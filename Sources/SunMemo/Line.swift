@@ -638,6 +638,7 @@ func makeThumbnail(_ url: URL, maxPixels: Int = 480) -> NSImage? {
 // MARK: - High-fidelity Memo Card Snapshot for Flight and Drop Animations
 
 struct MemoCardSnapshotView: View {
+    @ObservedObject private var textPreferences = MemoTextPreferences.shared
     let text: String
     let color: String
     let isDone: Bool
@@ -651,7 +652,7 @@ struct MemoCardSnapshotView: View {
     }
 
     var body: some View {
-        let config = MemoTypography.config(for: text)
+        let config = MemoTypography.config(for: text, fontSize: CGFloat(textPreferences.fontSize))
         VStack(alignment: .leading, spacing: 4) {
             if config.isSingleShortLine {
                 Spacer(minLength: 0)
@@ -682,6 +683,7 @@ struct MemoCardSnapshotView: View {
                     .foregroundStyle(Color.secondary.opacity(0.8))
             }
         }
+        .padding(.top, MemoCardLayout.headerHeight)
         .padding(10)
         .frame(width: customWidth.map(MemoLimits.clampWidth) ?? memoRatio.cardContentSize.width,
                height: customHeight.map(MemoLimits.clampHeight) ?? memoRatio.cardContentSize.height)
@@ -694,9 +696,12 @@ struct MemoCardSnapshotView: View {
     }
 
     private var snapshotBody: some View {
-        let config = MemoTypography.config(for: text)
+        let config = MemoTypography.config(for: text, fontSize: CGFloat(textPreferences.fontSize))
         let lines = text.components(separatedBy: "\n")
-        let maxLines = memoRatio == .tall ? 7 : (memoRatio == .square ? 5 : 4)
+        let layout = MemoCardLayout.textLayout(text: text,
+                                             cardHeight: customHeight.map(MemoLimits.clampHeight) ?? memoRatio.cardContentSize.height,
+                                             config: config, ratio: memoRatio)
+        let maxLines = layout.maxLines
         let visibleLines = Array(lines.prefix(maxLines).enumerated())
 
         return VStack(alignment: .leading, spacing: config.lineSpacing) {
@@ -711,7 +716,7 @@ struct MemoCardSnapshotView: View {
                         Text(LocalizedStringKey(content))
                             .font(.system(size: config.fontSize, weight: config.fontWeight, design: .rounded))
                             .foregroundStyle(Color.primary)
-                            .lineLimit(config.isSingleShortLine ? 2 : 1)
+                            .lineLimit(1)
                     }
                 } else if trimmed.hasPrefix("- [x] ") || trimmed.hasPrefix("- [X] ") ||
                           trimmed.hasPrefix("* [x] ") || trimmed.hasPrefix("* [X] ") ||
@@ -725,7 +730,7 @@ struct MemoCardSnapshotView: View {
                             .font(.system(size: config.fontSize, weight: config.fontWeight, design: .rounded))
                             .foregroundStyle(Color.secondary)
                             .strikethrough(true, color: .secondary)
-                            .lineLimit(config.isSingleShortLine ? 2 : 1)
+                            .lineLimit(1)
                     }
                 } else if trimmed.hasPrefix("#") {
                     let header = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
@@ -733,16 +738,16 @@ struct MemoCardSnapshotView: View {
                         .font(.system(size: max(12, config.fontSize), weight: .bold, design: .rounded))
                         .foregroundStyle(isDone ? Color.secondary : Color.primary)
                         .strikethrough(isDone, color: .secondary)
-                        .lineLimit(config.isSingleShortLine ? 2 : 1)
+                        .lineLimit(1)
                 } else {
                     Text(LocalizedStringKey(trimmed))
                         .font(.system(size: config.fontSize, weight: config.fontWeight, design: .rounded))
                         .foregroundStyle(isDone ? Color.secondary : Color.primary)
                         .strikethrough(isDone, color: .secondary)
-                        .lineLimit(config.isSingleShortLine ? 2 : 1)
+                        .lineLimit(1)
                 }
             }
-            if lines.count > maxLines {
+            if layout.showsMore {
                 Text("... 还有 \(lines.count - maxLines) 项")
                     .font(.system(size: 9.5, weight: .regular))
                     .foregroundStyle(Color.secondary.opacity(0.7))

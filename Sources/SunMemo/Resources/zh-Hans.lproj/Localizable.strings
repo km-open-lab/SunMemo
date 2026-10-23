@@ -61,3 +61,9 @@
 "Close Memo" = "关闭便签";
 "Minimize Memo" = "最小化便签";
 "Maximize or Restore Memo" = "最大化或还原便签";
+
+// Memo text size and separate take-down control
+"Font Size" = "字号";
+"Memo Font Size" = "便签字号";
+"Applies to all memos and remembers your last choice (12–24 pt)." = "应用于所有便签，并记住上次的选择（12–24 磅）。";
+"Take Down Memo" = "撕下便签";

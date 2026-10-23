@@ -9,7 +9,7 @@ public enum MemoLimits {
     /// Maximum width: prevents a memo card from dominating the entire clothesline.
     public static let maxWidth: CGFloat = 300
     /// Minimum height: compact sticky note for single-line short memos like "一会去健身".
-    public static let minHeight: CGFloat = 72
+    public static let minHeight: CGFloat = 100
     /// Maximum height: ensures the card stays within the clothesline panel bounds (panel height 275).
     public static let maxHeight: CGFloat = 220
 
@@ -22,9 +22,83 @@ public enum MemoLimits {
     }
 }
 
-/// Adaptive typography and layout rules for sticky notes.
-/// Automatically enlarges font and centers text for short/single-line memos
-/// so that short memos look full, punchy, and aesthetically balanced rather than empty.
+@MainActor
+final class MemoTextPreferences: ObservableObject {
+    static let shared = MemoTextPreferences()
+    nonisolated static let key = "memoFontSize"
+    nonisolated static let range = 12.0...24.0
+    nonisolated static let defaultSize = 16.0
+
+    @Published private(set) var fontSize: Double
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = Demo.defaults) {
+        self.defaults = defaults
+        fontSize = Self.savedSize(in: defaults)
+    }
+
+    nonisolated static func normalized(_ size: Double) -> Double {
+        guard size.isFinite else { return defaultSize }
+        return min(max(size.rounded(), range.lowerBound), range.upperBound)
+    }
+
+    nonisolated static func savedSize(in defaults: UserDefaults) -> Double {
+        guard defaults.object(forKey: key) != nil else { return defaultSize }
+        return normalized(defaults.double(forKey: key))
+    }
+
+    func setFontSize(_ size: Double) {
+        fontSize = Self.normalized(size)
+        defaults.set(fontSize, forKey: Self.key)
+    }
+}
+
+struct MemoFontSizeControl: View {
+    @ObservedObject private var preferences = MemoTextPreferences.shared
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Text(L("Font Size"))
+                .font(.system(size: 11, weight: .medium))
+            TextField(L("Font Size"), value: Binding(
+                get: { preferences.fontSize }, set: { preferences.setFontSize($0) }
+            ), format: .number.precision(.fractionLength(0)))
+            .textFieldStyle(.roundedBorder)
+            .frame(width: 36)
+            .accessibilityLabel(L("Memo Font Size"))
+            Stepper(L("Font Size"), onIncrement: {
+                preferences.setFontSize(preferences.fontSize + 1)
+            }, onDecrement: {
+                preferences.setFontSize(preferences.fontSize - 1)
+            })
+            .labelsHidden()
+            .fixedSize()
+        }
+        .fixedSize()
+        .help(L("Applies to all memos and remembers your last choice (12–24 pt)."))
+    }
+}
+
+enum MemoCardLayout {
+    static let headerHeight: CGFloat = 24
+
+    static func textLayout(text: String, cardHeight: CGFloat, config: MemoTypographyConfig,
+                           ratio: MemoAspectRatio) -> (maxLines: Int, showsMore: Bool) {
+        let available = max(0, cardHeight - headerHeight - 20 - 18 - 8)
+        let lineHeight = ceil(config.fontSize * 1.25)
+        let lineStride = lineHeight + config.lineSpacing
+        let count = text.components(separatedBy: "\n").count
+        let presetLimit = ratio == .tall ? 7 : ratio == .square ? 5 : 4
+        var limit = max(1, min(presetLimit, Int((available + config.lineSpacing) / lineStride)))
+        let canShowMore = available >= lineHeight + 16
+        if count > limit && canShowMore {
+            limit = max(1, min(limit, Int((available - 16 + config.lineSpacing) / lineStride)))
+        }
+        return (limit, count > limit && canShowMore)
+    }
+}
+
+/// The user's chosen text size, with weight and alignment adapted to the memo.
 public struct MemoTypographyConfig {
     public let fontSize: CGFloat
     public let fontWeight: Font.Weight
@@ -34,51 +108,54 @@ public struct MemoTypographyConfig {
 }
 
 public enum MemoTypography {
-    public static func config(for text: String) -> MemoTypographyConfig {
+    public static func config(for text: String, fontSize: CGFloat? = nil) -> MemoTypographyConfig {
         let rawLines = text.components(separatedBy: "\n")
         let nonBlankLines = rawLines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         let totalChars = text.trimmingCharacters(in: .whitespacesAndNewlines).count
+        let size = fontSize ?? CGFloat(MemoTextPreferences.savedSize(in: Demo.defaults))
+        let boxSize = min(max(size * 0.9, 12), 22)
+        let spacing = max(3.5, size * 0.25)
 
         // 1. Ultra-short single line memo (e.g. "一会去健身" <= 12 chars)
         if nonBlankLines.count <= 1 && totalChars <= 12 {
             return MemoTypographyConfig(
-                fontSize: 18.5,
+                fontSize: size,
                 fontWeight: .bold,
                 isSingleShortLine: true,
-                todoBoxSize: 16,
-                lineSpacing: 6
+                todoBoxSize: boxSize,
+                lineSpacing: spacing
             )
         }
 
         // 2. Short memo (1-2 lines, <= 26 chars)
         if nonBlankLines.count <= 2 && totalChars <= 26 {
             return MemoTypographyConfig(
-                fontSize: 15.0,
+                fontSize: size,
                 fontWeight: .semibold,
                 isSingleShortLine: false,
-                todoBoxSize: 14.5,
-                lineSpacing: 5
+                todoBoxSize: boxSize,
+                lineSpacing: spacing
             )
         }
 
         // 3. Medium memo (<= 3 lines, <= 48 chars)
         if nonBlankLines.count <= 3 && totalChars <= 48 {
             return MemoTypographyConfig(
-                fontSize: 13.0,
+                fontSize: size,
                 fontWeight: .medium,
                 isSingleShortLine: false,
-                todoBoxSize: 13,
-                lineSpacing: 4
+                todoBoxSize: boxSize,
+                lineSpacing: spacing
             )
         }
 
         // 4. Standard / Multi-line checklist / long text
         return MemoTypographyConfig(
-            fontSize: 11.5,
+            fontSize: size,
             fontWeight: .medium,
             isSingleShortLine: false,
-            todoBoxSize: 12,
-            lineSpacing: 3.5
+            todoBoxSize: boxSize,
+            lineSpacing: spacing
         )
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 // Runs the real controllers with Demo's isolated defaults and files. It never
 // launches AppDelegate, watchers, update checks or global shortcut registration.
@@ -47,6 +48,28 @@ func key(_ window: NSWindow, code: UInt16, text: String, modifiers: NSEvent.Modi
 
 @MainActor
 func runRegression() async {
+    let preferences = MemoTextPreferences.shared
+    preferences.setFontSize(20)
+    check(MemoTextPreferences(defaults: Demo.defaults).fontSize == 20, "font size survives preferences reload")
+    check(MemoTypography.config(for: "长便签\n第二行\n第三行\n第四行").fontSize == 20,
+          "card typography uses the saved font size")
+    check(MemoTextPreferences.normalized(100) == 24 && MemoTextPreferences.normalized(1) == 12 &&
+          MemoTextPreferences.normalized(.nan) == 16, "invalid font sizes stay within readable bounds")
+    preferences.setFontSize(16)
+    let sample = Array(repeating: "- [ ] 测试", count: 10).joined(separator: "\n")
+    var layoutsFit = true
+    for size in [12.0, 16, 24] {
+        let config = MemoTypography.config(for: sample, fontSize: CGFloat(size))
+        for ratio in MemoAspectRatio.allCases {
+            for height in [MemoLimits.minHeight, ratio.cardContentSize.height] {
+                let layout = MemoCardLayout.textLayout(text: sample, cardHeight: height, config: config, ratio: ratio)
+                let used = CGFloat(layout.maxLines) * ceil(config.fontSize * 1.25) +
+                    CGFloat(layout.maxLines - 1) * config.lineSpacing + (layout.showsMore ? 16 : 0)
+                if used > height - MemoCardLayout.headerHeight - 46 { layoutsFit = false }
+            }
+        }
+    }
+    check(layoutsFit, "large text fits every card preset and the minimum custom height")
     let originalPanel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                                 backing: .buffered, defer: false)
     check(!originalPanel.canBecomeKey, "original borderless panel reproduces keyboard-focus defect")
@@ -72,6 +95,14 @@ func runRegression() async {
     textView.insertText("中文", replacementRange: NSRange(location: NSNotFound, length: 0))
     await pause()
     check(textView.string.hasSuffix("a中文"), "Chinese marked-text composition commits correctly")
+    let selectionBeforeFontChange = textView.selectedRange()
+    let textBeforeFontChange = textView.string
+    preferences.setFontSize(22)
+    await pause()
+    check(textView.font?.pointSize == 22 && textView.string == textBeforeFontChange &&
+          textView.selectedRange() == selectionBeforeFontChange, "font changes preserve text and caret position")
+    preferences.setFontSize(16)
+    await pause()
     key(panel, code: 36, text: "\r")
     await pause()
     check(textView.string.hasSuffix("\n- [ ] "), "Return continues the checklist")
@@ -190,6 +221,51 @@ func runDragCheck() async {
     check(false, "drag check timed out")
 }
 
+struct CardCheckView: View {
+    @ObservedObject var line: Line
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Text("点击第一条待办，再点击右上角撕下")
+                .font(.system(size: 13))
+            if let memo = line.items.first(where: { !$0.falling }) {
+                PeggedView(item: memo, line: line)
+            }
+            MemoFontSizeControl()
+        }
+        .padding(24)
+        .frame(width: 360, height: 360)
+    }
+}
+
+@MainActor
+func runCardCheck() async {
+    let line = Line()
+    line.addMemo(text: "- [ ] 练境脚本\n- [ ] grokbot 剪辑", color: "yellow", aspectRatio: "tall")
+    let window = NSWindow(contentRect: NSRect(x: 300, y: 300, width: 360, height: 360),
+                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    window.title = "Memo Card Check"
+    window.contentView = NSHostingView(rootView: CardCheckView(line: line))
+    window.isReleasedWhenClosed = false
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+    var toggled = false
+    for _ in 0..<1800 {
+        await pause(0.1)
+        if let memo = line.items.first, memo.memoText.hasPrefix("- [x]") && !toggled {
+            check(!memo.falling && !MemoPreviewWindowController.shared.isOpen,
+                  "first todo toggles without taking down the card or opening its preview")
+            toggled = true
+        }
+        if toggled && (line.items.isEmpty || line.items.first?.falling == true) {
+            check(true, "separate top-right button takes down the memo")
+            Demo.cleanUp()
+            exit(0)
+        }
+    }
+    check(false, "card interaction check timed out")
+}
+
 guard CommandLine.arguments.contains("--demo") else {
     fatalError("Regression runner requires --demo to isolate all test data")
 }
@@ -198,6 +274,8 @@ app.setActivationPolicy(.accessory)
 Task { @MainActor in
     if CommandLine.arguments.contains("--drag-check") {
         await runDragCheck()
+    } else if CommandLine.arguments.contains("--card-check") {
+        await runCardCheck()
     } else {
         await runRegression()
     }

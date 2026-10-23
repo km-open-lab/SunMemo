@@ -376,6 +376,7 @@ extension Notification.Name {
 struct QuickMemoView: View {
     let editingID: UUID?
     let isStandalone: Bool
+    @ObservedObject private var textPreferences = MemoTextPreferences.shared
     @State private var text: String
     @State private var color: String
     @State private var aspectRatio: String
@@ -553,6 +554,7 @@ struct QuickMemoView: View {
                     MacTextEditor(
                         text: $text,
                         placeholder: "写下想法、未完成的事项或临时待办...\n\n• 支持 Markdown 语法与清单 (- [ ] 待办)\n• 按 回车 自动续接待办列表\n• 按 ⌘ + 回车 即可挂上晾衣绳",
+                        fontSize: CGFloat(textPreferences.fontSize),
                         onCommit: commit
                     )
                 }
@@ -584,6 +586,7 @@ struct QuickMemoView: View {
                 .lineLimit(1)
 
                 HStack(spacing: 12) {
+                    MemoFontSizeControl()
                     Spacer()
                     Button("取消") {
                         onCancel()
@@ -740,6 +743,9 @@ struct QuickMemoView: View {
 struct MarkdownPreviewScrollView: View {
     let text: String
     var onToggleTodo: (Int) -> Void
+    @ObservedObject private var textPreferences = MemoTextPreferences.shared
+
+    private var fontSize: CGFloat { CGFloat(textPreferences.fontSize) }
 
     var body: some View {
         ScrollView(.vertical) {
@@ -747,7 +753,7 @@ struct MarkdownPreviewScrollView: View {
             VStack(alignment: .leading, spacing: 6) {
                 if lines.isEmpty || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("暂无内容可预览")
-                        .font(.system(size: 13))
+                        .font(.system(size: fontSize))
                         .foregroundStyle(Color.secondary.opacity(0.6))
                         .padding(.top, 10)
                 } else {
@@ -756,10 +762,10 @@ struct MarkdownPreviewScrollView: View {
                         if trimmed.hasPrefix("- [ ] ") || trimmed.hasPrefix("* [ ] ") || trimmed.hasPrefix("[ ] ") {
                             let content = String(trimmed.dropFirst(trimmed.hasPrefix("[ ] ") ? 4 : 6))
                             HStack(alignment: .top, spacing: 6) {
-                                AnimatedTodoCheckbox(isChecked: false, size: 14) {
+                                AnimatedTodoCheckbox(isChecked: false, size: fontSize * 0.9) {
                                     onToggleTodo(index)
                                 }
-                                AnimatedStrikethroughText(text: content, isStruck: false, font: .system(size: 13.5, weight: .regular, design: .rounded), lineLimit: nil)
+                                AnimatedStrikethroughText(text: content, isStruck: false, font: .system(size: fontSize, weight: .regular, design: .rounded), lineLimit: nil)
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -770,10 +776,10 @@ struct MarkdownPreviewScrollView: View {
                                   trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") {
                             let content = String(trimmed.dropFirst(trimmed.hasPrefix("[x] ") || trimmed.hasPrefix("[X] ") ? 4 : 6))
                             HStack(alignment: .top, spacing: 6) {
-                                AnimatedTodoCheckbox(isChecked: true, size: 14) {
+                                AnimatedTodoCheckbox(isChecked: true, size: fontSize * 0.9) {
                                     onToggleTodo(index)
                                 }
-                                AnimatedStrikethroughText(text: content, isStruck: true, font: .system(size: 13.5, weight: .regular, design: .rounded), lineLimit: nil)
+                                AnimatedStrikethroughText(text: content, isStruck: true, font: .system(size: fontSize, weight: .regular, design: .rounded), lineLimit: nil)
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -782,21 +788,21 @@ struct MarkdownPreviewScrollView: View {
                         } else if trimmed.hasPrefix("#") {
                             let header = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "# "))
                             Text(LocalizedStringKey(header))
-                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .font(.system(size: fontSize + 1.5, weight: .bold, design: .rounded))
                                 .foregroundStyle(Color.primary)
                                 .padding(.top, 2)
                         } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
                             let content = String(trimmed.dropFirst(2))
                             HStack(alignment: .top, spacing: 5) {
                                 Text("•")
-                                    .font(.system(size: 13, weight: .bold))
+                                    .font(.system(size: fontSize, weight: .bold))
                                     .foregroundStyle(Color.secondary)
                                 Text(LocalizedStringKey(content))
-                                    .font(.system(size: 13.5, weight: .regular, design: .rounded))
+                                    .font(.system(size: fontSize, weight: .regular, design: .rounded))
                             }
                         } else if !trimmed.isEmpty {
                             Text(LocalizedStringKey(trimmed))
-                                .font(.system(size: 13.5, weight: .regular, design: .rounded))
+                                .font(.system(size: fontSize, weight: .regular, design: .rounded))
                                 .foregroundStyle(Color.primary)
                         } else {
                             Spacer().frame(height: 4)
@@ -815,6 +821,7 @@ struct MarkdownPreviewScrollView: View {
 struct MacTextEditor: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String
+    var fontSize: CGFloat = 16
     var onCommit: () -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -840,12 +847,12 @@ struct MacTextEditor: NSViewRepresentable {
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
-        textView.font = NSFont.systemFont(ofSize: 14.5, weight: .regular)
+        textView.font = NSFont.systemFont(ofSize: fontSize, weight: .regular)
         textView.textColor = NSColor.labelColor
         textView.insertionPointColor = NSColor.systemBlue
         textView.defaultParagraphStyle = paragraph
         textView.typingAttributes = [
-            .font: NSFont.systemFont(ofSize: 14.5, weight: .regular),
+            .font: NSFont.systemFont(ofSize: fontSize, weight: .regular),
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: paragraph
         ]
@@ -866,6 +873,14 @@ struct MacTextEditor: NSViewRepresentable {
         guard let textView = nsView.documentView as? CustomNSTextView else { return }
         context.coordinator.parent = self
         textView.onCmdReturn = onCommit
+        if textView.font?.pointSize != fontSize && !textView.hasMarkedText() {
+            let selection = textView.selectedRanges
+            let font = NSFont.systemFont(ofSize: fontSize, weight: .regular)
+            textView.font = font
+            textView.typingAttributes[.font] = font
+            textView.selectedRanges = selection
+            textView.needsDisplay = true
+        }
         if textView.string != text {
             textView.string = text
             textView.needsDisplay = true

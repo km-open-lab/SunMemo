@@ -63,3 +63,9 @@
 "Close Memo" = "Close Memo";
 "Minimize Memo" = "Minimize Memo";
 "Maximize or Restore Memo" = "Maximize or Restore Memo";
+
+// Memo text size and separate take-down control
+"Font Size" = "Font Size";
+"Memo Font Size" = "Memo Font Size";
+"Applies to all memos and remembers your last choice (12–24 pt)." = "Applies to all memos and remembers your last choice (12–24 pt).";
+"Take Down Memo" = "Take Down Memo";

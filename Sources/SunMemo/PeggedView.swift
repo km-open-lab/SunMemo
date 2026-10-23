@@ -5,6 +5,7 @@ import SwiftUI
 struct PeggedView: View {
     let item: Pegged
     @ObservedObject var line: Line
+    @ObservedObject private var textPreferences = MemoTextPreferences.shared
 
     @State private var swing: Double = 0
     @State private var arrived = false
@@ -240,13 +241,13 @@ struct PeggedView: View {
                     }
                 }
             } else {
-                let config = MemoTypography.config(for: item.memoText)
+                let config = MemoTypography.config(for: item.memoText, fontSize: CGFloat(textPreferences.fontSize))
                 if config.isSingleShortLine {
                     Spacer(minLength: 0)
                 }
 
                 // Interactive Markdown & Todo Checklist Renderer
-                MarkdownMemoCardBody(memo: item, line: line, typography: config)
+                MarkdownMemoCardBody(memo: item, line: line, typography: config, cardHeight: currentCardHeight)
 
                 Spacer(minLength: 2)
 
@@ -292,6 +293,7 @@ struct PeggedView: View {
                 }
             }
         }
+        .padding(.top, MemoCardLayout.headerHeight)
         .padding(10)
         .frame(width: currentCardWidth,
                height: currentCardHeight)
@@ -316,19 +318,22 @@ struct PeggedView: View {
             guard !isResizing else { return }
             MemoPreviewWindowController.shared.show(line: line, itemID: item.id)
         }
-        .overlay(alignment: .topLeading) {
-            if hovering && !dragging && !isEditing {
+        .overlay(alignment: .topTrailing) {
+            if !dragging && !isEditing {
                 Button {
                     line.discard(item.id)
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(.primary)
-                        .frame(width: 18, height: 18)
+                        .frame(width: 22, height: 22)
                         .glassFrame(circle: true)
                 }
                 .buttonStyle(.plain)
-                .padding(4)
+                .help(L("Take Down Memo"))
+                .accessibilityLabel(L("Take Down Memo"))
+                .opacity(hovering ? 1 : 0.55)
+                .padding(6)
                 .transition(.opacity)
             }
         }
@@ -369,6 +374,13 @@ struct PeggedView: View {
                 Button("▭ 宽版 (16:10)") { line.updateMemoAspectRatio(id: item.id, aspectRatio: "wide") }
                 Button("□ 方版 (1:1)") { line.updateMemoAspectRatio(id: item.id, aspectRatio: "square") }
                 Button("▯ 竖版 (3:4)") { line.updateMemoAspectRatio(id: item.id, aspectRatio: "tall") }
+            }
+            Menu(L("Memo Font Size")) {
+                ForEach(12...24, id: \.self) { size in
+                    Button("\(Int(textPreferences.fontSize) == size ? "✓ " : "")\(size) pt") {
+                        textPreferences.setFontSize(Double(size))
+                    }
+                }
             }
             if item.customWidth != nil || item.customHeight != nil {
                 Button("恢复预设卡片大小") {
@@ -609,6 +621,7 @@ struct MarkdownMemoCardBody: View {
     let memo: Pegged
     @ObservedObject var line: Line
     var typography: MemoTypographyConfig? = nil
+    var cardHeight: CGFloat = 192
 
     private var memoRatio: MemoAspectRatio {
         MemoAspectRatio(rawValue: memo.aspectRatio) ?? .wide
@@ -617,7 +630,9 @@ struct MarkdownMemoCardBody: View {
     var body: some View {
         let config = typography ?? MemoTypography.config(for: memo.memoText)
         let lines = memo.memoText.components(separatedBy: "\n")
-        let maxLines = memoRatio == .tall ? 7 : (memoRatio == .square ? 5 : 4)
+        let layout = MemoCardLayout.textLayout(text: memo.memoText, cardHeight: cardHeight,
+                                             config: config, ratio: memoRatio)
+        let maxLines = layout.maxLines
         let visibleLines = Array(lines.prefix(maxLines).enumerated())
 
         VStack(alignment: .leading, spacing: config.lineSpacing) {
@@ -629,11 +644,13 @@ struct MarkdownMemoCardBody: View {
                         AnimatedTodoCheckbox(isChecked: false, size: config.todoBoxSize) {
                             line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
                         }
+                        .accessibilityLabel(content)
+                        .accessibilityIdentifier("memo.todo.\(index)")
                         AnimatedStrikethroughText(
                             text: content,
                             isStruck: false,
                             font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
-                            lineLimit: config.isSingleShortLine ? 2 : 1
+                            lineLimit: 1
                         )
                     }
                     .contentShape(Rectangle())
@@ -648,11 +665,13 @@ struct MarkdownMemoCardBody: View {
                         AnimatedTodoCheckbox(isChecked: true, size: config.todoBoxSize) {
                             line.toggleMemoTodoLine(id: memo.id, lineIndex: index)
                         }
+                        .accessibilityLabel(content)
+                        .accessibilityIdentifier("memo.todo.\(index)")
                         AnimatedStrikethroughText(
                             text: content,
                             isStruck: true,
                             font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
-                            lineLimit: config.isSingleShortLine ? 2 : 1
+                            lineLimit: 1
                         )
                     }
                     .contentShape(Rectangle())
@@ -665,18 +684,18 @@ struct MarkdownMemoCardBody: View {
                         text: header,
                         isStruck: memo.isDone,
                         font: .system(size: max(12, config.fontSize), weight: .bold, design: .rounded),
-                        lineLimit: config.isSingleShortLine ? 2 : 1
+                        lineLimit: 1
                     )
                 } else {
                     AnimatedStrikethroughText(
                         text: trimmed,
                         isStruck: memo.isDone,
                         font: .system(size: config.fontSize, weight: config.fontWeight, design: .rounded),
-                        lineLimit: config.isSingleShortLine ? 2 : 1
+                        lineLimit: 1
                     )
                 }
             }
-            if lines.count > maxLines {
+            if layout.showsMore {
                 Text("... 还有 \(lines.count - maxLines) 项")
                     .font(.system(size: 9.5, weight: .regular))
                     .foregroundStyle(Color.secondary.opacity(0.7))
