@@ -1,5 +1,15 @@
 # 项目进度记录
 
+## 2026-10-23 20:25（Asia/Taipei）— v1.2.1 发布准备与已安装用户更新机制核查
+
+- 用户授权：「发布新版本到GitHub 并推送给已安装用户」。
+- 范围：发布本轮已完成的编辑、窗口、字号、待办滚动及感应状态修复；版本提升至 1.2.1，同步中英文 README 下载版本与发布说明。
+- 更新机制：核对已发布 v1.2.0 与当前 `UpdateChecker.swift` 一致，读取 `km-open-lab/SunMemo/releases/latest`；默认启动后 4 秒和每 24 小时检查，显示更新弹窗并打开 DMG 下载链接。已有客户端无推送服务或静默替换能力，关闭自动检查的用户需手动检查。
+- 发布准备验证：33 项隔离回归和八条待办实际滚动／勾选验证通过；52 个本地化键齐全，arm64／x86_64 通用 Release 构建通过。当前钥匙串无 Developer ID，包为 ad hoc 签名、无 Apple 公证，已向用户说明并写入发布说明。
+- 打包方式：沿用 `build-app.sh` 构建，使用 hdiutil 制作包含 SunMemo.app 与 Applications 链接的 DMG；不执行现有脚本中的 Finder AppleScript 布局操作，不修改已有 `scripts/make-dmg.sh` 工作区差异。
+- 待完成：校验最终 DMG 内容及摘要、推送源码和版本标签、发布正式版并设为 latest，读回公开更新接口、验证旧版本更新提示及本机安装。
+- 涉及文件：`VERSION`、`README.md`、`README_en.md`、`docs/releases/v1.2.1.md`、`TASKLOG.md`。
+
 ## 2026-10-23 20:22（Asia/Taipei）— 修复绳上待办仅显示两项的回退
 
 - 用户需求：「但是为什么现在待办只能看到两个了？」。
