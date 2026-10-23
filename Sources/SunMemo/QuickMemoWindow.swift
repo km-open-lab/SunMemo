@@ -94,7 +94,13 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
         win.isMovableByWindowBackground = true
         win.isFloatingPanel = true
         win.level = .floating
+        // Rounded SwiftUI content leaves transparent corners. An opaque
+        // backing store can leave black pixels there until the next redraw.
+        win.isOpaque = false
         win.backgroundColor = .clear
+        // QuickMemoView already draws its shadow; avoid a second cached
+        // AppKit shadow around the rectangular panel backing it.
+        win.hasShadow = false
         win.contentView = hosting
         win.delegate = self
         if let screen = NSScreen.screens.first {
