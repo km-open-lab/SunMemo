@@ -1,6 +1,38 @@
 import AppKit
 import SwiftUI
 
+/// The editor draws its own rounded frame and close button.
+final class QuickMemoPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+private struct MemoWindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> DragView { DragView() }
+    func updateNSView(_ nsView: DragView, context: Context) {}
+
+    final class DragView: NSView {
+        private var dragOffset: NSPoint?
+
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override var mouseDownCanMoveWindow: Bool { false }
+
+        override func mouseDown(with event: NSEvent) {
+            dragOffset = event.locationInWindow
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let window, let dragOffset else { return }
+            let pointer = window.convertPoint(toScreen: event.locationInWindow)
+            window.setFrameOrigin(NSPoint(x: pointer.x - dragOffset.x, y: pointer.y - dragOffset.y))
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            dragOffset = nil
+        }
+    }
+}
+
 /// What the editor holds: the text and how the card looks.
 struct MemoDraft: Codable, Equatable {
     var text: String
@@ -69,6 +101,7 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
             initialText: current.text,
             initialColor: current.color,
             initialAspectRatio: current.aspectRatio,
+            isStandalone: true,
             onEdit: { [weak self] text, color, aspectRatio in
                 self?.draftChanged(MemoDraft(text: text, color: color, aspectRatio: aspectRatio))
             },
@@ -82,24 +115,23 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
 
         let initialSize = (MemoAspectRatio(rawValue: current.aspectRatio) ?? .wide).editorWindowSize
         let hosting = NSHostingView(rootView: view)
-        let win = NSPanel(
+        let win = QuickMemoPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: [.borderless, .resizable],
             backing: .buffered, defer: false
         )
         win.minSize = NSSize(width: 360, height: 260)
         win.maxSize = NSSize(width: 1200, height: 1000)
-        win.titleVisibility = .hidden
-        win.titlebarAppearsTransparent = true
-        win.isMovableByWindowBackground = true
+        win.isMovableByWindowBackground = false
         win.isFloatingPanel = true
+        win.hidesOnDeactivate = false
         win.level = .floating
         // Rounded SwiftUI content leaves transparent corners. An opaque
         // backing store can leave black pixels there until the next redraw.
         win.isOpaque = false
         win.backgroundColor = .clear
-        // QuickMemoView already draws its shadow; avoid a second cached
-        // AppKit shadow around the rectangular panel backing it.
+        // All visible pixels come from the rounded card, with no shadow or
+        // native titlebar backing extending beyond it.
         win.hasShadow = false
         win.contentView = hosting
         win.delegate = self
@@ -300,6 +332,7 @@ extension Notification.Name {
 
 struct QuickMemoView: View {
     let editingID: UUID?
+    let isStandalone: Bool
     @State private var text: String
     @State private var color: String
     @State private var aspectRatio: String
@@ -309,10 +342,12 @@ struct QuickMemoView: View {
     let onCancel: () -> Void
 
     init(editingID: UUID?, initialText: String, initialColor: String, initialAspectRatio: String = "wide",
+         isStandalone: Bool = false,
          onEdit: @escaping (String, String, String) -> Void = { _, _, _ in },
          onSave: @escaping (String, String, String) -> Void,
          onCancel: @escaping () -> Void) {
         self.editingID = editingID
+        self.isStandalone = isStandalone
         self.onEdit = onEdit
         _text = State(initialValue: initialText)
         _color = State(initialValue: initialColor)
@@ -373,6 +408,14 @@ struct QuickMemoView: View {
                             .foregroundStyle(Color.secondary.opacity(0.7))
                     }
                     .buttonStyle(.plain)
+                }
+            }
+            .overlay(alignment: .leading) {
+                if isStandalone {
+                    // Keep the color and close buttons fully interactive.
+                    MemoWindowDragArea()
+                        .padding(.trailing, 150)
+                        .accessibilityHidden(true)
                 }
             }
             .padding(.horizontal, 18)
@@ -560,7 +603,16 @@ struct QuickMemoView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.black.opacity(0.12), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.24), radius: 20, y: 10)
+        .overlay(alignment: .top) {
+            if isStandalone {
+                // The empty strip above the title is also a native drag handle.
+                MemoWindowDragArea()
+                    .frame(height: 14)
+                    .padding(.horizontal, 18)
+                    .accessibilityHidden(true)
+            }
+        }
+        .shadow(color: .black.opacity(isStandalone ? 0 : 0.24), radius: isStandalone ? 0 : 20, y: isStandalone ? 0 : 10)
         // Every change is reported, so the controller can keep a draft.
         .onChange(of: text) { _ in onEdit(text, color, aspectRatio) }
         .onChange(of: color) { _ in onEdit(text, color, aspectRatio) }

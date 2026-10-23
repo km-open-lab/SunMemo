@@ -96,6 +96,11 @@ func runRegression() async {
     await pause()
     let newWindow = NSApp.keyWindow!
     let newText = editor(in: newWindow)!
+    check(!newWindow.styleMask.contains(.titled), "standalone editor has no native titlebar behind the card")
+    check(!newWindow.isOpaque && !newWindow.hasShadow, "standalone editor has transparent backing and no system shadow")
+    check(!newWindow.hidesOnDeactivate, "standalone editor stays visible when screenshot tools take focus")
+    check(newWindow.contentRect(forFrameRect: newWindow.frame).size == newWindow.frame.size,
+          "standalone card fills the window without a titlebar strip")
     key(newWindow, code: 0, text: "a")
     await pause()
     check(newText.string == "a", "new memo keyboard input remains functional")
@@ -114,10 +119,41 @@ func runRegression() async {
     exit(0)
 }
 
+@MainActor
+func runDragCheck() async {
+    let line = Line()
+    QuickMemoWindowController.shared.show(line: line)
+    await pause()
+    let window = QuickMemoWindowController.shared.demoTextView!.window!
+    let initial = window.frame
+    var moved = false
+    print("Drag check ready. Drag the top strip and title, then close the empty editor.")
+    for _ in 0..<900 {
+        await pause(0.1)
+        if !window.isVisible {
+            check(moved, "native drag changed the editor's screen position")
+            Demo.cleanUp()
+            exit(0)
+        }
+        if window.frame.origin != initial.origin && !moved {
+            moved = true
+            print("PASS: window moved from \(initial.origin) to \(window.frame.origin)")
+            check(window.frame.size == initial.size, "drag moves the whole window without resizing it")
+        }
+    }
+    check(false, "drag check timed out")
+}
+
 guard CommandLine.arguments.contains("--demo") else {
     fatalError("Regression runner requires --demo to isolate all test data")
 }
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
-Task { @MainActor in await runRegression() }
+Task { @MainActor in
+    if CommandLine.arguments.contains("--drag-check") {
+        await runDragCheck()
+    } else {
+        await runRegression()
+    }
+}
 app.run()
