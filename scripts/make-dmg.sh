@@ -80,7 +80,7 @@ echo "Built $DMG"
 # notary credentials stored with:
 #   xcrun notarytool store-credentials tendedero-notary --apple-id ... --team-id ...
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
-PROFILE="${NOTARY_PROFILE:-tendedero-notary}"
+PROFILE="${NOTARY_PROFILE:-sunmemo-notary}"
 if [ -n "$IDENTITY" ]; then
   codesign --force --timestamp --sign "$IDENTITY" "$DMG"
   if xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then

@@ -1,5 +1,21 @@
 # 项目进度记录
 
+## 2026-10-26 — 引入 Apple 官方公证体系（Notarization），构建首个免拦截正规发布版
+
+- 用户诉求：解决普通用户下载安装 SunMemo 时触发 Gatekeeper「Apple 无法验证是否包含恶意软件，未打开」拦截弹窗问题，实现免提示、拖拽即用的商业级安装体验。
+- 技术落地与成果：
+  1. **开发者证书申请与配置**：协助在 Apple Developer Portal 申请开通正式的 `Developer ID Application: kaiming zhang (992W2X9RX4)` 证书（基于 G2 Sub-CA），安全导入本机钥匙串。
+  2. **Apple Notary 自动化公证凭证配置**：配置基于 ASC API Key 的专用 notarytool profile `sunmemo-notary`，通过 Apple 官方服务器双向身份验证。
+  3. **自动化打包脚本打通**：更新 `scripts/make-dmg.sh`，构建 Universal 架构二进制，注入 Hardened Runtime 与安全时间戳，一键打包并自动上传 Apple 官方公证服务器。
+  4. **首个公证正式包产出**：
+     - Submission ID: `093f166c-7c53-4b5b-a9fc-d7c63d2fe1ef`
+     - Apple 官方审核状态：`Accepted`
+     - 票据装订：`xcrun stapler staple` 成功将苹果验资票据嵌入 `SunMemo-1.2.1.dmg`
+     - Gatekeeper 验证结果：`source=Notarized Developer ID`，`accepted`
+  5. **本机安装包同步更新**：同步替换 `/Applications/SunMemo.app` 为最新公证签署版，彻底清除网络隔离标记。
+- 产物文件：[`/Users/km/Documents/SunMemo/build/SunMemo-1.2.1.dmg`](file:///Users/km/Documents/SunMemo/build/SunMemo-1.2.1.dmg)
+- 影响：彻底消灭了 Gatekeeper 拦截弹窗，全球任何 Mac 从任何网络渠道下载此 DMG 均可直接拖入 Applications 双击秒开。
+
 ## 2026-10-23 20:27（Asia/Taipei）— v1.2.1 正式发布，验证旧版更新通知
 
 - 用户授权：发布 GitHub 新版本并让已安装用户收到更新提示。
