@@ -4,12 +4,33 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# A release image must never silently fall back to an unnotarized build.
+IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
+PROFILE="${NOTARY_PROFILE:-sunmemo-notary}"
+if [ -z "$IDENTITY" ]; then
+  echo "A Developer ID Application identity is required for release packaging." >&2
+  exit 1
+fi
+xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null
+export SIGN_IDENTITY="$IDENTITY"
+
 scripts/build-app.sh release
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' build/SunMemo.app/Contents/Info.plist)"
 DMG="build/SunMemo-$VERSION.dmg"
 NAME="SunMemo"
 
 WORK="$(mktemp -d)"
+# Staple the app before copying it into the image, so the installed app also
+# carries its own ticket for offline verification.
+ditto -c -k --keepParent build/SunMemo.app "$WORK/SunMemo.zip"
+xcrun notarytool submit "$WORK/SunMemo.zip" --keychain-profile "$PROFILE" --wait
+xcrun stapler staple build/SunMemo.app
+xcrun stapler validate build/SunMemo.app
+codesign --verify --deep --strict build/SunMemo.app
+if command -v syspolicy_check >/dev/null; then
+  syspolicy_check distribution build/SunMemo.app
+fi
+
 STAGE="$WORK/stage"
 mkdir -p "$STAGE/.background"
 cp -R build/SunMemo.app "$STAGE/"
@@ -78,20 +99,13 @@ echo "Built $DMG"
 # Sign the disk image, send it to Apple for notarization and staple the
 # ticket, so it opens without warnings even offline. Needs a Developer ID and
 # notary credentials stored with:
-#   xcrun notarytool store-credentials tendedero-notary --apple-id ... --team-id ...
-IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
-PROFILE="${NOTARY_PROFILE:-sunmemo-notary}"
-if [ -n "$IDENTITY" ]; then
-  codesign --force --timestamp --sign "$IDENTITY" "$DMG"
-  if xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
-    echo "Notarizing, this usually takes a few minutes..."
-    xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
-    xcrun stapler staple "$DMG"
-    spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
-  else
-    echo "No notary credentials in profile $PROFILE: the image is signed but not notarized."
-  fi
-fi
+#   xcrun notarytool store-credentials sunmemo-notary --apple-id ... --team-id ...
+codesign --force --timestamp --sign "$IDENTITY" "$DMG"
+echo "Notarizing, this usually takes a few minutes..."
+xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
+xcrun stapler staple "$DMG"
+xcrun stapler validate "$DMG"
+spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
 
 # Keep the Homebrew cask in step: new version and the checksum of this image.
 # Set TAP_DIR to the tap checkout; nothing is committed or pushed here, so the

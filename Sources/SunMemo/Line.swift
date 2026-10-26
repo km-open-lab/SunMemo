@@ -688,6 +688,7 @@ struct MemoCardSnapshotView: View {
         .frame(width: customWidth.map(MemoLimits.clampWidth) ?? memoRatio.cardContentSize.width,
                height: customHeight.map(MemoLimits.clampHeight) ?? memoRatio.cardContentSize.height)
         .background(memoBackground(for: color))
+        .memoPaperAppearance()
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)

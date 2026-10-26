@@ -902,6 +902,7 @@ struct HeroPreviewHostView: View {
         }
         .frame(width: memoRatio.previewSize.width, height: memoRatio.previewSize.height)
         .background(memoBackground(for: item.memoColor))
+        .memoPaperAppearance()
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)

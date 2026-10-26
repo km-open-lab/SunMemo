@@ -625,6 +625,7 @@ struct QuickMemoView: View {
         }
         .frame(minWidth: 380, maxWidth: .infinity, minHeight: 260, maxHeight: .infinity)
         .background(memoBackground(for: color))
+        .memoPaperAppearance()
         .animation(.easeInOut(duration: 0.22), value: color)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
@@ -830,6 +831,8 @@ struct MacTextEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
+        // NSTextView resolves NSColor independently of SwiftUI's environment.
+        scrollView.appearance = NSAppearance(named: .aqua)
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
         scrollView.hasVerticalScroller = true
@@ -983,7 +986,7 @@ final class CustomNSTextView: NSTextView {
             paragraph.lineSpacing = 4
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: font ?? NSFont.systemFont(ofSize: 14.5),
-                .foregroundColor: NSColor.secondaryLabelColor.withAlphaComponent(0.55),
+                .foregroundColor: NSColor.secondaryLabelColor,
                 .paragraphStyle: paragraph
             ]
             let x = textContainerInset.width

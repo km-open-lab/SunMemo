@@ -363,6 +363,7 @@ struct PeggedView: View {
                 .transition(.opacity)
             }
         }
+        .memoPaperAppearance()
         .contextMenu {
             Button("查看完整便签") {
                 MemoPreviewWindowController.shared.show(line: line, itemID: item.id)

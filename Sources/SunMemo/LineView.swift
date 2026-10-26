@@ -209,7 +209,7 @@ struct AddMemoCardView: View {
             VStack(spacing: 8) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(isHovering ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(Color.accentColor)
                 Text("记想法 / 待办")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
@@ -219,7 +219,7 @@ struct AddMemoCardView: View {
                     .foregroundStyle(.secondary)
             }
             .frame(width: Layout.memoWidth - 14, height: Layout.memoHeight - 14)
-            .background(isHovering ? Color.white.opacity(0.24) : Color.white.opacity(0.12))
+            .background(.regularMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Frame.radius - Frame.inset, style: .continuous)

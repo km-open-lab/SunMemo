@@ -47,6 +47,48 @@ func key(_ window: NSWindow, code: UInt16, text: String, modifiers: NSEvent.Modi
 }
 
 @MainActor
+func runAppearanceCheck() async {
+    let originalAppearance = NSApp.appearance
+    defer { NSApp.appearance = originalAppearance }
+    let date = Date()
+    for color in ["yellow", "green", "pink", "blue"] {
+        var inkCounts: [Int] = []
+        for dark in [false, true] {
+            NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            let host = NSHostingView(rootView:
+                MemoCardSnapshotView(text: "Readable 便签", color: color, isDone: false,
+                                     aspectRatio: "wide", createdAt: date)
+                    .environment(\.colorScheme, dark ? .dark : .light))
+            let window = NSWindow(contentRect: NSRect(x: 200, y: 200, width: 206, height: 126),
+                                  styleMask: [.borderless], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.contentView = host
+            window.orderFront(nil)
+            await pause()
+            host.layoutSubtreeIfNeeded()
+            let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            var ink = 0
+            // Inspect the central text band; exclude the footer and borders.
+            for y in (bitmap.pixelsHigh * 3 / 10)..<(bitmap.pixelsHigh * 7 / 10) {
+                for x in (bitmap.pixelsWide / 10)..<(bitmap.pixelsWide * 9 / 10) {
+                    if let pixel = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB),
+                       max(pixel.redComponent, pixel.greenComponent, pixel.blueComponent) < 0.4 {
+                        ink += 1
+                    }
+                }
+            }
+            check(ink > 50, "\(color) paper has dark readable ink in \(dark ? "dark" : "light") mode")
+            inkCounts.append(ink)
+            let path = "build/regression/\(color)-\(dark ? "dark" : "light").png"
+            try! bitmap.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+            window.close()
+        }
+        check(abs(inkCounts[0] - inkCounts[1]) < 10, "\(color) paper keeps the same ink across appearance changes")
+    }
+}
+
+@MainActor
 func runRegression() async {
     let preferences = MemoTextPreferences.shared
     preferences.setFontSize(20)
@@ -84,6 +126,8 @@ func runRegression() async {
     await pause(0.8)
     let panel = NSApp.windows.compactMap { $0 as? MemoPreviewPanel }.first { $0.isVisible }!
     let textView = editor(in: panel)!
+    check(textView.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua,
+          "native editor resolves ink and selection against light paper")
     check(panel.isKeyWindow && panel.firstResponder === textView, "existing memo editor receives keyboard focus")
     check(textView.string == "测试1\n- [ ] 原有待办", "existing text is retained when reopening")
     textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
@@ -130,7 +174,8 @@ func runRegression() async {
     check(reopened.string.hasSuffix("bc"), "typing still works on a second edit")
     key(preview, code: 36, text: "\r", modifiers: .command)
     await pause(1.8)
-    check(line.items.first { $0.id == id }?.memoText.hasSuffix("bc") == true, "second edit is saved")
+    check(line.items.first { $0.id == id }?.memoText.hasSuffix("bc") == true,
+          "second edit is saved (actual: \(line.items.first { $0.id == id }?.memoText.debugDescription ?? "missing"))")
 
     QuickMemoWindowController.shared.show(line: line)
     await pause()
@@ -277,6 +322,14 @@ Task { @MainActor in
     } else if CommandLine.arguments.contains("--card-check") {
         await runCardCheck()
     } else {
+        if CommandLine.arguments.contains("--appearance-check") {
+            await runAppearanceCheck()
+            Demo.cleanUp()
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--dark") {
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
         await runRegression()
     }
 }

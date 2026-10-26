@@ -1,5 +1,18 @@
 # 项目进度记录
 
+## 2026-10-26 19:26（Asia/Taipei）— 修复深色模式便签对比度，补齐应用与 DMG 公证票据
+
+- 用户需求：截图中深色模式黄色便签使用白字，正文、时间、勾选和关闭控件难辨认；核实今天完成 Apple 认证后后续安装是否仍被拦截。
+- 本次完成：四种浅色纸张保留原配色，绳上便签、预览、编辑器与飞行动画统一按浅色纸张解析文字和控件颜色；原生 NSTextView 的滚动容器使用 Aqua 外观，避免随系统变白，恢复占位提示对比度。新增便签入口使用 regularMaterial 与强调色加号，随系统外观解析。
+- 公证核查：今天既有 1.2.1 的 Apple Submission `093f166c-7c53-4b5b-a9fc-d7c63d2fe1ef` 为 Accepted；GitHub 公开附件已在 10/26 13:20 替换成公证包，摘要与本地原包一致（`3a520d48c0bcbc217d3cb68b01057be9de46ad13e1eea33afe49f1d7e0111dc8`）。旧流程仅装订 DMG，应用的 syspolicy_check 报 Notary Ticket Missing。
+- 打包改进：make-dmg.sh 先验证 Developer ID 与公证凭证，缺失则停止；先对应用 ZIP 公证并给 app 装订、验证票据，再制作与公证 DMG 并装订、验证票据。支持 syspolicy_check 的系统额外执行预分发检查；本地开发仍可用 build-app.sh 构建。后续每次重建均需重新公证。
+- 验证：arm64／x86_64 Release 构建和严格签名验证通过；明／暗外观各 34 项原生编辑、中文输入、保存持久化、字号及窗口回归通过，另有四种纸张在两种外观下的深色文字像素与一致性检查共 12 项通过。前几次 UI 回归分别在续行或保存断言失败，同一源码隔离重跑通过，保留 UI 测试时序／焦点稳定性疑点，未据此扩大修改业务逻辑。52 个本地化键齐全。
+- 新包公证：app ZIP Submission `a8d108a9-edce-440f-abbe-eb64ee701507`、DMG Submission `f4dc5d01-c3f6-41b8-8d6f-fd8a217dbd8b` 均 Accepted；app 与 DMG 的 stapler validate 通过，app 的 syspolicy_check distribution 全部通过。DMG 的 spctl 显示 Notarized Developer ID，但同时显示 security disabled，因此不以本机 Gatekeeper 结果代表全新 Mac 的首次安装验收；未修改系统安全设置。
+- 产物与安装：`build/dark-mode-package/SunMemo-1.2.1-dark-mode.dmg`；旧 app 备份于忽略目录 `build/dark-mode-package/SunMemo-before-dark-mode.app`。已更新并启动 `/Applications/SunMemo.app`，与构建二进制 SHA-256 一致，安装后票据和预分发检查通过。实际查看编辑器文字与控件清晰；四条原有便签及字号 19pt 保留。顶部浮层在 CUA 截图中处于屏外，未取得修复后的真实桌面晾衣绳截图；四种纸张自动渲染截图位于 `build/regression/*-dark.png`。
+- 发布边界：沿用 1.2.1 版本号的本地修复构建，未替换 GitHub 公开附件、未推送源码；原公开 DMG 保持不变。发布时应提升版本号并重新构建、公证以触发旧客户端更新提示。新脚本通过 bash 语法检查；本轮为避开 Finder UI 与 Homebrew 旁支修改，以命令行独立制作 DMG，实际跑通同等的两次公证、票据装订流程，未完整执行 make-dmg.sh 的 Finder 布局段。
+- 事实边界：上条记录的“全球任何 Mac 从任何网络渠道…双击秒开”过度承诺。Apple 公证解决未公证／开发者未验证导致的拦截，首次下载确认、权限提示及不同系统环境仍可能影响安装启动。
+- 涉及文件：`Sources/SunMemo/MemoAppearance.swift`、`PeggedView.swift`、`Line.swift`、`LineView.swift`、`QuickMemoWindow.swift`、`MemoPreviewWindow.swift`、`scripts/make-dmg.sh`、`scripts/regression/main.swift`、`TASKLOG.md`。
+
 ## 2026-10-26 — 引入 Apple 官方公证体系（Notarization），构建首个免拦截正规发布版
 
 - 用户诉求：解决普通用户下载安装 SunMemo 时触发 Gatekeeper「Apple 无法验证是否包含恶意软件，未打开」拦截弹窗问题，实现免提示、拖拽即用的商业级安装体验。
