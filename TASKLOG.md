@@ -1,5 +1,13 @@
 # 项目进度记录
 
+## 2026-10-28 14:52（Asia/Taipei）— 1.3.0 签名与实际应用内更新验收完成，准备发布
+
+- 用户已完成系统钥匙串授权，官方 sign_update 已成功使用密钥生成签名。生产 DMG 与整个 appcast.xml 的 Ed25519 签名验证通过；私钥未导出。
+- 实际更新验收：独立 bundle `com.zhangkaiming.SunMemo.UpdateSmoke` 从回环服务器读取签名 feed，点击标准「安装更新」后下载、验证、替换并重启；旧目录内 app 版本变为 1.3.0／9000001，重启标记 `installed-and-relaunched` 存在，严格签名通过。测试启动器和生产 Sparkle 框架共用更新引擎，未读取真实便签。
+- 负向验收：对 archive 追加篡改内容，保持其原始签名并重新签署 feed；真实更新界面报告「此更新未正确签名，无法验证其真实性」。旧目录版本保持 1／1.0.0，无重启标记。已关闭测试更新提示并结束测试进程。
+- 生产产物：build/SunMemo-1.3.0.dmg、build/SunMemo-1.3.0.dmg.sha256、build/appcast.xml；生产 build number 为 39，feed 与 app 一致。DMG SHA-256：`c429565f3487d3ef9182b5a4f9807c43272d45342e9b82a455fa85e8cc6eaab0`。
+- 发布方式：先创建 draft 并上传三份附件，再发布为 latest，防止应用读取不完整更新。待发布后回下载并验证公开 feed 与 DMG。
+
 ## 2026-10-28 14:30（Asia/Taipei）— v1.3.0 应用内更新已接入，等待系统钥匙串授权后完成发布
 
 - 用户需求：不再每次下载 DMG 后手动拖动安装；明确要求做完直接发布新版。
