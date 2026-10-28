@@ -12,7 +12,7 @@
   <br><br>
   <strong>Local Data · No Accounts, No Analytics · Blazing Fast Native Swift · Compatible with macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
-  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 Download Latest DMG (v1.2.1)</strong></a>
+  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 Download Latest DMG (v1.2.2)</strong></a>
   &nbsp;·&nbsp;
   <a href="#-keyboard-shortcuts--gestures">Shortcuts</a>
   &nbsp;·&nbsp;
@@ -98,7 +98,7 @@
 ## 📦 Installation
 
 ### Option 1: Download DMG (Recommended)
-1. Head over to [GitHub Releases](https://github.com/km-open-lab/SunMemo/releases/latest) and download `SunMemo-1.2.1.dmg`.
+1. Head over to [GitHub Releases](https://github.com/km-open-lab/SunMemo/releases/latest) and download `SunMemo-1.2.2.dmg`.
 2. Open the DMG and drag **SunMemo.app** into your **Applications** folder.
 3. Launch SunMemo and follow the quick onboarding guide.
 

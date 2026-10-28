@@ -1,5 +1,15 @@
 # 项目进度记录
 
+## 2026-10-28 14:09（Asia/Taipei）— v1.2.2 公证正式版发布准备
+
+- 用户授权：「发布」，范围为此前已完成的深色模式修复及应用／DMG 公证票据改进。
+- 本次变更：版本由 1.2.1 提升至 1.2.2，同步中英文 README 下载版本，新增 `docs/releases/v1.2.2.md`。业务源码沿用 `14998dd`，复用该提交已通过的明暗模式各 34 项回归与 12 项四底色渲染检查；本轮未重复运行整套 UI 测试。
+- 新包验证：arm64／x86_64 Release 构建、52 个本地化键检查、严格签名和应用预分发检查通过；应用 ZIP 公证 `86a862a1-64d9-443c-881e-bc6f37f1a202`、DMG 公证 `021b82fa-c32f-4b23-a565-a27c8013f727` 均 Accepted。应用及 DMG 票据装订与验证通过。
+- 打包：沿用上一轮无 Finder UI 的原生命令打包路径，包含 app 与 Applications 链接；未运行 make-dmg.sh 的 Finder 布局或 Homebrew 旁支。安装包 `build/SunMemo-1.2.2.dmg`，另备 SHA-256 文件，摘要 `f7e449477908e1f8d138de23cc5415cec7a85e16c207d8933110dba47e4346bb`。
+- 验证边界：本机 Gatekeeper assessments disabled；spctl 返回 Notarized Developer ID 不能等同全新 Mac 的首次安装验收。应用的 syspolicy_check distribution 已独立通过，未修改系统安全设置。
+- 发布待办：推送源码及 v1.2.2 标签，发布 GitHub latest 正式版；读回公开 latest API，以现有 UpdateChecker 版本比较函数确认旧版本能识别更新，并回下载验证安装包摘要。
+- 涉及文件：`VERSION`、`README.md`、`README_en.md`、`docs/releases/v1.2.2.md`、`TASKLOG.md`。
+
 ## 2026-10-26 19:26（Asia/Taipei）— 修复深色模式便签对比度，补齐应用与 DMG 公证票据
 
 - 用户需求：截图中深色模式黄色便签使用白字，正文、时间、勾选和关闭控件难辨认；核实今天完成 Apple 认证后后续安装是否仍被拦截。
