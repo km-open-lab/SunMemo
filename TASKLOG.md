@@ -1,5 +1,14 @@
 # 项目进度记录
 
+## 2026-10-28 14:57（Asia/Taipei）— v1.3.0 应用内更新正式发布，并更新本机
+
+- 用户授权：完成后直接发布新版。源码与标签已推送；`v1.3.0` 指向 `63089f5`，正式 Release 已设为 latest：https://github.com/km-open-lab/SunMemo/releases/tag/v1.3.0 。附件包含 DMG（4,446,123 bytes）、SHA-256 与签名 appcast.xml，先作为 draft 全部上传再公开。
+- 公开验收：latest API 返回 v1.3.0 正式版，三份资产均 uploaded；从未认证公开 URL 回下载的 feed 与 DMG 和本地逐字节／SHA-256 一致，GitHub 资产 digest 一致。公网上的 feed 和 archive Ed25519 签名验证通过，回下载 DMG 票据验证通过。摘要 `c429565f3487d3ef9182b5a4f9807c43272d45342e9b82a455fa85e8cc6eaab0`。
+- 本机更新：确认旧 SunMemo 未运行后，备份到忽略目录 `build/release-1.3.0/SunMemo-before-1.3.0.app`，更新 `/Applications/SunMemo.app`；严格签名、票据与 syspolicy_check distribution 通过，安装后二进制与构建一致。未修改便签文件、草稿或字号设置。
+- 真实生产入口验收：启动本机 app，实际打开偏好设置，显示 v1.3.0、自动检查沿用已启用状态，以及「已是最新版本 (v1.3.0)」。确认新 UpdateChecker 成功使用公开签名 feed；隔离副本的安装重启及篡改拒绝结果见上一条。测试回环服务器已停止。
+- 用户体验边界：本机已升级，后续可在应用内下载、校验、安装并重启；1.2.2 及更早客户端仍需最后手动安装一次 1.3.0，无法向旧二进制补发不存在的安装能力。保留关闭自动检查的选择，未默认开启后台静默安装。
+- 资料：39 项编辑／重启保护回归结果 `build/sparkle-regressions.log`；公证与公开回下载资料 `build/release-1.3.0/`；隔离更新结果 `build/update-smoke/result.txt`。私钥仍只保存在钥匙串，仓库仅含公钥。
+
 ## 2026-10-28 14:52（Asia/Taipei）— 1.3.0 签名与实际应用内更新验收完成，准备发布
 
 - 用户已完成系统钥匙串授权，官方 sign_update 已成功使用密钥生成签名。生产 DMG 与整个 appcast.xml 的 Ed25519 签名验证通过；私钥未导出。
