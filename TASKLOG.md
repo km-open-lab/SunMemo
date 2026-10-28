@@ -1,5 +1,13 @@
 # 项目进度记录
 
+## 2026-10-28 14:10（Asia/Taipei）— v1.2.2 正式发布并验证公开下载与旧版更新判断
+
+- 完成结果：修复源码与版本提交 `96f458e` 已推送至 origin/main；附注标签 `v1.2.2` 指向该提交。正式 Release 已设为 latest：https://github.com/km-open-lab/SunMemo/releases/tag/v1.2.2 。安装包 3,405,042 bytes，另附 SHA-256 文件。
+- 公开验证：latest API 返回 v1.2.2，draft=false、prerelease=false、资产 uploaded。使用现有 `UpdateChecker.swift` 的实际版本比较函数对公开响应执行隔离检查，1.0.0／1.2.0／1.2.1 均判断新版本可用，1.2.2 不判断为更新；未将版本比较验证表述为真实更新弹窗实测。
+- 下载校验：从公开下载 URL 无认证回下载，SHA-256 与本地公证包及 GitHub 资产摘要一致：`f7e449477908e1f8d138de23cc5415cec7a85e16c207d8933110dba47e4346bb`；回下载 DMG 的 stapler validate 通过。挂载原包核对 app 版本为 1.2.2、应用票据和严格签名通过、二进制与构建一致、Applications 链接正确。
+- 更新边界：旧版开启自动检查后在下次启动或每 24 小时检查时发现更新；需联网，更新提示打开下载链接，仍由用户完成安装，无即时推送或静默升级。本轮未覆盖本机应用或便签数据，未修改 Homebrew tap。
+- 产物：`build/SunMemo-1.2.2.dmg`、`build/SunMemo-1.2.2.dmg.sha256`；公证与校验材料位于忽略的 `build/release-1.2.2/`。
+
 ## 2026-10-28 14:09（Asia/Taipei）— v1.2.2 公证正式版发布准备
 
 - 用户授权：「发布」，范围为此前已完成的深色模式修复及应用／DMG 公证票据改进。
