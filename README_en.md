@@ -12,7 +12,7 @@
   <br><br>
   <strong>Local Data · No Accounts, No Analytics · Blazing Fast Native Swift · Compatible with macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
-  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 Download Latest DMG (v1.2.2)</strong></a>
+  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 Download Latest DMG (v1.3.0)</strong></a>
   &nbsp;·&nbsp;
   <a href="#-keyboard-shortcuts--gestures">Shortcuts</a>
   &nbsp;·&nbsp;
@@ -67,12 +67,12 @@
 - **Anti-Misfire Protection**: High signal-to-noise filter (0.18g threshold) ensures normal keyboard typing never triggers motion; easily toggled on/off in Preferences and the menu bar.
 
 ### 🔄 7. Automatic Update Checks & Preferences
-- Built-in GitHub Releases update checker notifies you unobtrusively in the menu bar whenever a new release arrives.
+- Starting with 1.3.0, Sparkle checks, downloads, verifies and installs updates inside the app. Install and relaunch without dragging a replacement app in Finder. Installation waits for an open memo editor to be saved or closed.
 - Dedicated preferences panel lets you customize global hotkeys and toggle clipboard auto-hang.
 
 ### 🛡️ 8. Local-first, Private & Lightweight
-- **Zero user accounts**, **zero tracking or analytics**, and **zero third-party SDKs**.
-- **The only network access is the update check**: on by default, it asks the GitHub Releases API (`api.github.com`) for the latest version at launch and every 24 hours, and never uploads memos or screenshots. Turn it off in Preferences → Software Updates.
+- **Zero user accounts**, **zero tracking or analytics**; updates use the open-source Sparkle framework.
+- **Network access is used for software updates**: automatic checks read a signed feed hosted on GitHub Releases (`github.com`); installing an update downloads a signed archive from GitHub's asset distribution servers. Memos and screenshots are never uploaded. These requests expose ordinary network information to the servers. Turn off automatic checks in Preferences → Software Updates.
 - Memos, screenshots and settings stay on your Mac. If iCloud Desktop & Documents is on, `~/Documents/SunMemo.md` syncs to iCloud along with the rest of Documents.
 
 ---
@@ -98,9 +98,11 @@
 ## 📦 Installation
 
 ### Option 1: Download DMG (Recommended)
-1. Head over to [GitHub Releases](https://github.com/km-open-lab/SunMemo/releases/latest) and download `SunMemo-1.2.2.dmg`.
+1. Head over to [GitHub Releases](https://github.com/km-open-lab/SunMemo/releases/latest) and download `SunMemo-1.3.0.dmg`.
 2. Open the DMG and drag **SunMemo.app** into your **Applications** folder.
 3. Launch SunMemo and follow the quick onboarding guide.
+
+Users on 1.2.2 or earlier need one final manual installation of 1.3.0. Subsequent updates can be downloaded, installed and relaunched inside the app.
 
 ### Option 2: Build from Source
 Built with pure Swift, SwiftUI, and AppKit without requiring heavyweight Xcode project files. You can compile a universal binary (`arm64` + `x86_64`) directly via SwiftPM:

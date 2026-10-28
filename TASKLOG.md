@@ -1,5 +1,15 @@
 # 项目进度记录
 
+## 2026-10-28 14:30（Asia/Taipei）— v1.3.0 应用内更新已接入，等待系统钥匙串授权后完成发布
+
+- 用户需求：不再每次下载 DMG 后手动拖动安装；明确要求做完直接发布新版。
+- 实施：以 Sparkle 2.10.1 替换仅检测 GitHub 版本并打开下载链接的 UpdateChecker。标准更新界面负责下载、校验、安装、重启；菜单和设置沿用入口。迁移旧版自动检查偏好，默认不启用后台静默安装。编辑中的便签会延迟安装回调，保存或关闭后继续，避免更新重启丢稿。
+- 构建与安全：SwiftPM 固定依赖及 Package.resolved；build-app.sh 嵌入通用框架并由内向外签署 XPC、助手、框架、应用。应用启用签名 feed 与解包前 Ed25519 校验。新签名私钥保存在本机钥匙串（account `com.zhangkaiming.SunMemo`），仓库只保存公钥。make-appcast.py 核对公钥、签名并验证 archive 和 feed；打包脚本自动生成 appcast。
+- 文档：VERSION 提升至 1.3.0，更新中英文 README、发布说明和 docs/releasing.md。明确旧版仍需最后手动安装一次；同时移除 README 中不再准确的“无第三方 SDK”和“只请求 GitHub API”陈述。
+- 已验证：Debug 与通用 Release 构建通过；39 项隔离回归通过（含五项编辑期间等待／保存后恢复安装回调检查）；52 个本地化键齐全，shell 语法和 diff 检查通过。应用公证 `7372d929-e236-4acd-b25c-122693f60c52` 与 DMG 公证 `c2d628a0-254a-4e18-9c58-d91639e26ffc` 均 Accepted，票据装订与验证通过，应用预分发检查通过。
+- 进行中：本机 `sign_update` 首次访问新密钥触发 macOS SecurityAgent 授权，CUA 明确禁止操作 SecurityAgent；已请用户自行完成钥匙串弹窗。不得导出私钥或绕过系统授权。
+- 待完成：授权后生成签名 feed，用独立 bundle ID 的回环测试副本跑通安装替换和重启，并验证篡改包被拒绝；随后发布 v1.3.0 latest，必须一起上传 DMG、摘要、appcast.xml，读回验证公开资源。当前 GitHub 仍为已发布的 1.2.2。
+
 ## 2026-10-28 14:10（Asia/Taipei）— v1.2.2 正式发布并验证公开下载与旧版更新判断
 
 - 完成结果：修复源码与版本提交 `96f458e` 已推送至 origin/main；附注标签 `v1.2.2` 指向该提交。正式 Release 已设为 latest：https://github.com/km-open-lab/SunMemo/releases/tag/v1.2.2 。安装包 3,405,042 bytes，另附 SHA-256 文件。

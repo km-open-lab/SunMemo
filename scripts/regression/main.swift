@@ -153,8 +153,13 @@ func runRegression() async {
     key(panel, code: 11, text: "b")
     await pause()
     let expected = textView.string
+    var previewInstallResumed = false
+    check(UpdateChecker.shared.deferInstallationIfEditing { previewInstallResumed = true },
+          "update installation waits while an existing memo is being edited")
+    check(!previewInstallResumed, "update does not discard in-place edits")
     key(panel, code: 36, text: "\r", modifiers: .command)
     await pause(1.8)
+    check(previewInstallResumed, "update can resume after the existing memo is saved")
     check(!controller.isOpen, "Command-Return saves and dismisses existing memo")
     check(line.items.first { $0.id == id }?.memoText == expected, "keyboard edits reach the saved memo")
     let restored = Line()
@@ -213,9 +218,13 @@ func runRegression() async {
     key(newWindow, code: 0, text: "a")
     await pause()
     check(newText.string == "a", "new memo keyboard input remains functional")
+    var newMemoInstallResumed = false
+    check(UpdateChecker.shared.deferInstallationIfEditing { newMemoInstallResumed = true },
+          "update installation waits for an unsaved new memo")
     key(newWindow, code: 36, text: "\r", modifiers: .command)
-    await pause()
+    await pause(0.8)
     check(line.items.contains { $0.memoText == "a" }, "new memo can still be saved")
+    check(newMemoInstallResumed, "update resumes once the new memo is saved")
     QuickMemoWindowController.shared.show(line: line)
     await pause()
     let emptyWindow = QuickMemoWindowController.shared.demoTextView!.window!

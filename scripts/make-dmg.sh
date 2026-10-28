@@ -106,6 +106,7 @@ xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
 xcrun stapler staple "$DMG"
 xcrun stapler validate "$DMG"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+python3 scripts/make-appcast.py "$DMG"
 
 # Keep the Homebrew cask in step: new version and the checksum of this image.
 # Set TAP_DIR to the tap checkout; nothing is committed or pushed here, so the

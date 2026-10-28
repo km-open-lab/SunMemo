@@ -102,7 +102,7 @@ final class QuickMemoWindowController: NSObject, NSWindowDelegate {
     /// What the editor holds right now.
     private var current = MemoDraft.empty
 
-    private var hasUnsavedChanges: Bool { current != original && !current.isBlank }
+    var hasUnsavedChanges: Bool { current != original && !current.isBlank }
 
     func show(line: Line, editingMemoID: UUID? = nil) {
         if let editingMemoID {

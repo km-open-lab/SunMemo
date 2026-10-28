@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 CONFIG="${1:-release}"
 APP="build/SunMemo.app"
 VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0')}"
-BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo '1')"
+BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo '1')}"
+SPARKLE_PUBLIC_KEY="$(tr -d '[:space:]' < config/sparkle-public-key.txt)"
 
 # Builds one architecture and prints the binary's path.
 # The Command Line Tools for macOS 27 ship an SDK whose SwiftUI needs a macro
@@ -36,6 +37,9 @@ BIN="$OUT/SunMemo"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/SunMemo"
+mkdir -p "$APP/Contents/Frameworks"
+ditto .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework \
+  "$APP/Contents/Frameworks/Sparkle.framework"
 
 # Icon
 WORK="$(mktemp -d)"
@@ -75,6 +79,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
+  <key>SUFeedURL</key><string>https://github.com/km-open-lab/SunMemo/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>${SPARKLE_PUBLIC_KEY}</string>
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUScheduledCheckInterval</key><integer>86400</integer>
+  <key>SUAutomaticallyUpdate</key><false/>
+  <key>SUAllowsAutomaticUpdates</key><false/>
+  <key>SUVerifyUpdateBeforeExtraction</key><true/>
+  <key>SURequireSignedFeed</key><true/>
   <key>NSDesktopFolderUsageDescription</key>
   <string>SunMemo watches the folder where macOS saves your screenshots so it can hang them on the line.</string>
 </dict>
@@ -85,11 +97,25 @@ PLIST
 # set), with the hardened runtime and a secure timestamp that notarization
 # requires. Without one, sign ad hoc so the app still runs locally.
 IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
+sign_code() {
+  if [ -n "$IDENTITY" ]; then
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$@"
+  else
+    codesign --force --sign - "$@"
+  fi
+}
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+# Sign from the inside out; Downloader keeps its shipped sandbox entitlements.
+sign_code "$SPARKLE/XPCServices/Installer.xpc"
+sign_code --preserve-metadata=entitlements "$SPARKLE/XPCServices/Downloader.xpc"
+sign_code "$SPARKLE/Autoupdate"
+sign_code "$SPARKLE/Updater.app"
+sign_code "$APP/Contents/Frameworks/Sparkle.framework"
+sign_code "$APP"
 if [ -n "$IDENTITY" ]; then
-  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
   echo "Signed with $IDENTITY"
 else
-  codesign --force --deep --sign - "$APP" >/dev/null
   echo "Signed ad hoc (no Developer ID found)"
 fi
+codesign --verify --deep --strict "$APP"
 echo "Built $APP"

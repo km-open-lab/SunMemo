@@ -1,203 +1,112 @@
 import AppKit
-import SwiftUI
+import Combine
+import Sparkle
 
-/// Release information parsed from GitHub Releases API
-struct ReleaseInfo: Equatable {
-    let tagName: String
-    let name: String
-    let body: String
-    let htmlUrl: URL
-    let dmgDownloadUrl: URL?
-    let publishedAt: Date?
-
-    var version: String {
-        tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
-    }
-}
-
-/// Automatically checks GitHub Releases for new SunMemo versions and notifies the user.
+/// Sparkle owns checking, verified downloads, installation and relaunch.
 @MainActor
-final class UpdateChecker: ObservableObject {
+final class UpdateChecker: NSObject, ObservableObject, SPUUpdaterDelegate {
     static let shared = UpdateChecker()
 
-    @Published var isChecking: Bool = false
-    @Published var availableUpdate: ReleaseInfo? = nil
-    @Published var lastCheckedDate: Date? = nil
-    @Published var checkStatus: String = ""
+    @Published private(set) var isChecking = false
+    @Published private(set) var availableVersion: String?
+    @Published private(set) var checkStatus = ""
 
-    private let repoOwner = "km-open-lab"
-    private let repoName = "SunMemo"
+    private var controller: SPUStandardUpdaterController?
+    private var observations = Set<AnyCancellable>()
+    private var pendingInstallation: (() -> Void)?
+    private var editingTimer: Timer?
 
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
 
     var autoCheckEnabled: Bool {
-        get { Demo.defaults.object(forKey: "autoCheckUpdates") as? Bool ?? true }
-        set { Demo.defaults.set(newValue, forKey: "autoCheckUpdates") }
+        get {
+            controller?.updater.automaticallyChecksForUpdates ??
+                (Demo.defaults.object(forKey: "SUEnableAutomaticChecks") as? Bool ??
+                 Demo.defaults.object(forKey: "autoCheckUpdates") as? Bool ?? true)
+        }
+        set {
+            // Preserve the existing preference when migrating; Sparkle owns it afterwards.
+            Demo.defaults.set(newValue, forKey: "SUEnableAutomaticChecks")
+            controller?.updater.automaticallyChecksForUpdates = newValue
+            objectWillChange.send()
+        }
     }
-
-    private var checkTimer: Timer?
-
-    // MARK: - Lifecycle
 
     func start() {
-        guard autoCheckEnabled else { return }
-
-        // Initial check 4 seconds after app launch so startup is instant
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
-            self?.checkForUpdates(userInitiated: false)
+        guard !Demo.isActive, controller == nil else { return }
+        if Demo.defaults.object(forKey: "SUEnableAutomaticChecks") == nil,
+           let previous = Demo.defaults.object(forKey: "autoCheckUpdates") as? Bool {
+            Demo.defaults.set(previous, forKey: "SUEnableAutomaticChecks")
         }
-
-        // Periodic check once every 24 hours
-        checkTimer?.invalidate()
-        checkTimer = Timer.scheduledTimer(withTimeInterval: 86400, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self, self.autoCheckEnabled else { return }
-                self.checkForUpdates(userInitiated: false)
-            }
-        }
+        let controller = SPUStandardUpdaterController(startingUpdater: false,
+                                                       updaterDelegate: self, userDriverDelegate: nil)
+        self.controller = controller
+        controller.updater.publisher(for: \.canCheckForUpdates)
+            .sink { [weak self] canCheck in self?.isChecking = !canCheck }
+            .store(in: &observations)
+        controller.updater.publisher(for: \.automaticallyChecksForUpdates)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &observations)
+        controller.startUpdater()
     }
-
-    // MARK: - Check Logic
 
     func checkForUpdates(userInitiated: Bool = false) {
-        guard !isChecking else { return }
-        isChecking = true
+        start()
+        guard let controller, controller.updater.canCheckForUpdates else { return }
         checkStatus = "正在检查更新..."
-
-        let apiURL = URL(string: "https://api.github.com/repos/\(repoOwner)/\(repoName)/releases/latest")!
-        var request = URLRequest(url: apiURL)
-        request.setValue("SunMemo-App/\(currentVersion)", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 12.0
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.isChecking = false
-                self.lastCheckedDate = Date()
-
-                if let error {
-                    self.checkStatus = "检查失败：网络不可用"
-                    if userInitiated {
-                        self.showErrorAlert(message: "无法连接到更新服务器，请检查网络连接。\n(\(error.localizedDescription))")
-                    }
-                    return
-                }
-
-                guard let data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let tagName = json["tag_name"] as? String,
-                      let htmlUrlStr = json["html_url"] as? String,
-                      let htmlUrl = URL(string: htmlUrlStr) else {
-                    self.checkStatus = "暂未发现更新"
-                    if userInitiated {
-                        self.showUpToDateAlert()
-                    }
-                    return
-                }
-
-                let name = json["name"] as? String ?? tagName
-                let body = json["body"] as? String ?? ""
-
-                // Extract DMG asset download URL if available
-                var dmgUrl: URL? = nil
-                if let assets = json["assets"] as? [[String: Any]] {
-                    for asset in assets {
-                        if let assetName = asset["name"] as? String,
-                           assetName.lowercased().hasSuffix(".dmg"),
-                           let downloadStr = asset["browser_download_url"] as? String,
-                           let url = URL(string: downloadStr) {
-                            dmgUrl = url
-                            break
-                        }
-                    }
-                }
-
-                let release = ReleaseInfo(
-                    tagName: tagName,
-                    name: name,
-                    body: body,
-                    htmlUrl: htmlUrl,
-                    dmgDownloadUrl: dmgUrl,
-                    publishedAt: nil
-                )
-
-                if Self.isVersion(release.version, newerThan: self.currentVersion) {
-                    self.availableUpdate = release
-                    self.checkStatus = "发现新版本 v\(release.version)"
-
-                    let ignoredVersion = Demo.defaults.string(forKey: "ignoredUpdateVersion")
-                    if userInitiated || ignoredVersion != release.version {
-                        self.showUpdateAlert(for: release)
-                    }
-                } else {
-                    self.availableUpdate = nil
-                    self.checkStatus = "已是最新版本 (v\(self.currentVersion))"
-                    if userInitiated {
-                        self.showUpToDateAlert()
-                    }
-                }
-            }
-        }.resume()
+        if userInitiated {
+            controller.checkForUpdates(nil)
+        } else {
+            controller.updater.checkForUpdatesInBackground()
+        }
     }
 
-    // MARK: - UI Alerts
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        availableVersion = item.displayVersionString
+        checkStatus = "发现新版本 v\(item.displayVersionString)，可在应用内安装并重启"
+    }
 
-    func showUpdateAlert(for release: ReleaseInfo) {
-        let alert = NSAlert()
-        alert.messageText = "✨ 发现 SunMemo 新版本 v\(release.version)"
-        alert.informativeText = "当前版本：v\(currentVersion)\n最新版本：v\(release.version)\n\n\(release.name)\n\n更新说明：\n\(release.body.trimmingCharacters(in: .whitespacesAndNewlines))"
-        alert.alertStyle = .informational
-
-        alert.addButton(withTitle: "🚀 立即下载安装")
-        alert.addButton(withTitle: "稍后提醒")
-        alert.addButton(withTitle: "忽略此版本")
-
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            // Direct download DMG or open release page
-            if let dmgUrl = release.dmgDownloadUrl {
-                NSWorkspace.shared.open(dmgUrl)
+    func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
+        if let error = error as NSError? {
+            if error.domain == SUSparkleErrorDomain && error.code == SUError.noUpdateError.rawValue {
+                availableVersion = nil
+                checkStatus = "已是最新版本 (v\(currentVersion))"
             } else {
-                NSWorkspace.shared.open(release.htmlUrl)
+                checkStatus = "更新未完成：\(error.localizedDescription)"
             }
-        } else if response == .alertThirdButtonReturn {
-            Demo.defaults.set(release.version, forKey: "ignoredUpdateVersion")
         }
     }
 
-    private func showUpToDateAlert() {
-        let alert = NSAlert()
-        alert.messageText = "当前已是最新版本"
-        alert.informativeText = "SunMemo v\(currentVersion) 已经是最新版本，无需更新。"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "好的")
-        alert.runModal()
+    func updater(_ updater: SPUUpdater, shouldPostponeRelaunchForUpdate item: SUAppcastItem,
+                 untilInvokingBlock installHandler: @escaping () -> Void) -> Bool {
+        deferInstallationIfEditing(installHandler)
     }
 
-    private func showErrorAlert(message: String) {
-        let alert = NSAlert()
-        alert.messageText = "检查更新失败"
-        alert.informativeText = message
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "好")
-        alert.runModal()
-    }
-
-    // MARK: - Version Comparison
-
-    static func isVersion(_ remote: String, newerThan local: String) -> Bool {
-        let rParts = remote.split(separator: ".").compactMap { Int($0) }
-        let lParts = local.split(separator: ".").compactMap { Int($0) }
-        let count = max(rParts.count, lParts.count)
-        for i in 0..<count {
-            let r = i < rParts.count ? rParts[i] : 0
-            let l = i < lParts.count ? lParts[i] : 0
-            if r > l { return true }
-            if r < l { return false }
+    /// Do not terminate the process while a memo editor has unsaved content.
+    /// Sparkle resumes only after the user saves or closes the editor.
+    func deferInstallationIfEditing(_ installHandler: @escaping () -> Void) -> Bool {
+        guard Self.mustWaitForEditing else { return false }
+        pendingInstallation = installHandler
+        checkStatus = "更新已就绪，请先保存或关闭正在编辑的便签，随后将安装并重启"
+        editingTimer?.invalidate()
+        editingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.resumeInstallationIfReady() }
         }
-        return false
+        return true
+    }
+
+    private static var mustWaitForEditing: Bool {
+        QuickMemoWindowController.shared.hasUnsavedChanges ||
+            MemoPreviewWindowController.shared.isEditingActive
+    }
+
+    func resumeInstallationIfReady() {
+        guard !Self.mustWaitForEditing, let install = pendingInstallation else { return }
+        pendingInstallation = nil
+        editingTimer?.invalidate()
+        editingTimer = nil
+        install()
     }
 }

@@ -235,7 +235,7 @@ struct SettingsView: View {
                 if !updateChecker.checkStatus.isEmpty {
                     Text(updateChecker.checkStatus)
                         .font(.system(size: 11))
-                        .foregroundStyle(updateChecker.availableUpdate != nil ? Color.orange : Color.secondary)
+                        .foregroundStyle(updateChecker.availableVersion != nil ? Color.orange : Color.secondary)
                 }
             }
             .padding(12)

@@ -838,9 +838,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
 
         // 发现新版本时置顶醒目显示
-        if let update = UpdateChecker.shared.availableUpdate {
-            let updateItem = ClosureMenuItem("✨ 发现新版本 v\(update.version) (点击更新)") {
-                UpdateChecker.shared.showUpdateAlert(for: update)
+        if let version = UpdateChecker.shared.availableVersion {
+            let updateItem = ClosureMenuItem("✨ 发现新版本 v\(version) (点击更新)") {
+                UpdateChecker.shared.checkForUpdates(userInitiated: true)
             }
             menu.addItem(updateItem)
             menu.addItem(.separator())

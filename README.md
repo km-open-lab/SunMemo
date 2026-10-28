@@ -12,7 +12,7 @@
   <br><br>
   <strong>数据存本地 · 无账号无统计 · 极速流畅 · 兼容 macOS 13+ (Ventura / Sonoma / Sequoia)</strong>
   <br><br>
-  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.2.2)</strong></a>
+  <a href="https://github.com/km-open-lab/SunMemo/releases/latest"><strong>📦 下载最新 DMG 安装包 (v1.3.0)</strong></a>
   &nbsp;·&nbsp;
   <a href="#-快捷键与操作手势">快捷键一览</a>
   &nbsp;·&nbsp;
@@ -67,12 +67,12 @@
 - **贴心防误触设计**：内置高信噪比滤波算法，杜绝日常键盘打字误触；可在偏好设置与状态栏随时一键开启或关闭。
 
 ### 🔄 7. 自动更新检测与设置管理 (Auto-Update & Preferences)
-- 内置 GitHub Releases 自动版本检查，新版本发布时在菜单栏友好提示，一键跳转更新。
+- 从 1.3.0 起，通过 Sparkle 在应用内检查、下载、校验并安装更新，点击安装后重启，无需手动拖动替换。便签正在编辑时先等待保存或关闭。
 - 专属偏好设置面板，支持自定义录制全局快捷键与开关剪贴板自动挂绳。
 
 ### 🛡️ 8. 本地优先与隐私 (Local-first & Private)
-- **0 账号体系**、**0 统计与追踪**、**0 第三方 SDK**。
-- **唯一的联网行为是检查更新**：默认开启，启动时和之后每 24 小时请求一次 GitHub Releases API（`api.github.com`），只读取最新版本号，不上传任何便签或截图。可在「偏好设置 → 软件版本与自动更新」中关闭。
+- **0 账号体系**、**0 统计与追踪**；使用开源 Sparkle 更新框架。
+- **联网用于软件更新**：默认自动检查，读取 GitHub Releases 上的签名更新列表（`github.com`），安装更新时从 GitHub 的资源分发地址下载签名安装包，不上传便签或截图。检查和下载请求会向服务器提供常规网络信息。可在「偏好设置 → 软件版本与自动更新」中关闭自动检查。
 - 便签、截图与配置都保存在本机。注意：如果开启了 iCloud「桌面与文稿」同步，`~/Documents/SunMemo.md` 会随文稿目录一起同步到 iCloud。
 
 ---
@@ -98,9 +98,11 @@
 ## 📦 下载与安装 (Installation)
 
 ### 方式 1：直接下载 DMG 安装包（推荐）
-1. 前往 [Releases 页面](https://github.com/km-open-lab/SunMemo/releases/latest) 下载最新版本的 `SunMemo-1.2.2.dmg`。
+1. 前往 [Releases 页面](https://github.com/km-open-lab/SunMemo/releases/latest) 下载最新版本的 `SunMemo-1.3.0.dmg`。
 2. 双击打开 DMG，将 **SunMemo.app** 拖动至 **Applications** 文件夹即可。
 3. 首次启动时，SunMemo 会弹出欢迎与使用引导卡片，按指引开启即可畅享。
+
+1.2.2 及更早版本需最后手动安装一次 1.3.0；此后可在应用内下载、安装并重启更新。
 
 ### 方式 2：源码编译 (Build from source)
 项目采用纯 Swift + SwiftUI + AppKit 构建，无需安装庞大的 Xcode 完整工程即可直接用 SwiftPM 构建通用架构（Universal Binary: Apple Silicon + Intel）：
